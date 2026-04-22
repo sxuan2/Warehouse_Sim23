@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-6 h-full">
     
-    <div class="bg-[#0a0b0d] border border-[#1e293b] p-4 shrink-0">
+    <div class="bg-wms-bg border border-wms-border p-4 shrink-0">
       <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Fulfillment Flow Guide</div>
@@ -17,17 +17,17 @@
       <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="border border-amber-500/20 bg-amber-500/5 p-3">
           <div class="text-[9px] uppercase font-bold tracking-widest text-amber-400">1. Queue</div>
-          <div class="text-lg font-bold text-white mt-1">{{ pendingOrdersCount }}</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ pendingOrdersCount }}</div>
           <div class="text-[10px] text-slate-500">PENDING orders</div>
         </div>
         <div class="border border-indigo-500/20 bg-indigo-500/5 p-3">
           <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">2. Fulfillment</div>
-          <div class="text-lg font-bold text-white mt-1">{{ processingOrdersCount }}</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ processingOrdersCount }}</div>
           <div class="text-[10px] text-slate-500">PROCESSING orders</div>
         </div>
         <div class="border border-emerald-500/20 bg-emerald-500/5 p-3">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">3. Closed</div>
-          <div class="text-lg font-bold text-white mt-1">{{ shippedOrdersCount }}</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ shippedOrdersCount }}</div>
           <div class="text-[10px] text-slate-500">SHIPPED orders</div>
         </div>
       </div>
@@ -38,13 +38,13 @@
         <AlertTriangleIcon class="text-rose-500" :size="16" />
         <span class="text-rose-500 text-[10px] font-bold uppercase tracking-widest">SYSTEM HALT: {{ orderStore.error }}</span>
       </div>
-      <button @click="orderStore.error = null" class="text-rose-500 hover:text-white transition-colors">
+      <button @click="orderStore.error = null" class="text-rose-500 hover:text-wms-text transition-colors">
         <XIcon :size="14" />
       </button>
     </div>
 
-    <div v-if="selectedOrder" class="bg-[#0f1115] border border-[#1e293b] flex flex-col flex-1 min-h-0">
-      <div class="bg-[#161b22] border-b border-[#1e293b] p-4 flex justify-between items-center shrink-0 shadow-lg">
+    <div v-if="selectedOrder" class="bg-wms-surface border border-wms-border flex flex-col flex-1 min-h-0">
+      <div class="bg-wms-header border-b border-wms-border p-4 flex justify-between items-center shrink-0 shadow-lg">
         <div class="flex items-center gap-6">
           <button @click="selectedOrder = null" class="text-slate-400 hover:text-indigo-400 transition-colors bg-white/5 p-1 rounded">
             <ChevronLeftIcon :size="18" />
@@ -63,7 +63,7 @@
           <button 
             v-if="selectedOrder.status === 'PENDING'"
             @click="markAsProcessing"
-            class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
+            class="bg-indigo-600 hover:bg-indigo-500 text-wms-text text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
           >
             <TruckIcon :size="14" /> Start Fulfillment
           </button>
@@ -72,7 +72,7 @@
             v-if="selectedOrder.status === 'PROCESSING'"
             @click="handleShipOrder"
             :disabled="orderStore.isLoading"
-            class="bg-[#0e7490] hover:bg-[#0891b2] disabled:bg-white/10 disabled:text-slate-500 text-white text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
+            class="bg-[#0e7490] hover:bg-[#0891b2] disabled:bg-white/10 disabled:text-slate-500 text-wms-text text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
           >
             <TruckIcon v-if="!orderStore.isLoading" :size="14" />
             <RefreshCcwIcon v-else class="animate-spin" :size="14" />
@@ -85,13 +85,13 @@
         </div>
       </div>
 
-      <div class="bg-[#161b22] border-b border-[#1e293b] flex gap-1 px-4 pt-4 shrink-0">
+      <div class="bg-wms-header border-b border-wms-border flex gap-1 px-4 pt-4 shrink-0">
         <button 
           v-for="tab in ['items', 'details']" 
           :key="tab"
           @click="activeSubTab = tab"
           :class="['px-4 py-2 text-[10px] uppercase tracking-widest font-bold transition-all border-x border-t rounded-t-sm', 
-                   activeSubTab === tab ? 'bg-[#0e7490] text-white border-[#0e7490]' : 'bg-white/5 text-slate-500 border-[#1e293b] hover:bg-white/10']"
+                   activeSubTab === tab ? 'bg-[#0e7490] text-wms-text border-[#0e7490]' : 'bg-white/5 text-slate-500 border-wms-border hover:bg-white/10']"
         >
           {{ tab === 'items' ? 'Order Line Items' : 'Shipping Details' }}
         </button>
@@ -141,15 +141,15 @@
       </div>
     </div>
 
-    <div v-else class="bg-[#0a0b0d] border border-[#1e293b] flex flex-col flex-1 min-h-0">
-      <div class="flex justify-between items-center p-4 border-b border-[#1e293b] shrink-0">
-        <div class="text-xs font-bold text-white tracking-widest flex items-center gap-2 uppercase">
+    <div v-else class="bg-wms-bg border border-wms-border flex flex-col flex-1 min-h-0">
+      <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
+        <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
           <ArrowRightLeftIcon class="text-indigo-500" :size="16" />
           Outbound Manifests
         </div>
         <button 
           @click="orderStore.fetchOrders()"
-          class="text-slate-500 hover:text-white transition-colors"
+          class="text-slate-500 hover:text-wms-text transition-colors"
         >
           <RefreshCcwIcon :size="14" :class="{'animate-spin': orderStore.isLoading}" />
         </button>
@@ -157,7 +157,7 @@
 
       <div class="overflow-y-auto flex-1">
         <table class="w-full text-left">
-          <thead class="bg-[#161b22] text-[10px] text-slate-500 uppercase tracking-widest font-bold border-b border-[#1e293b] sticky top-0">
+          <thead class="bg-wms-header text-[10px] text-slate-500 uppercase tracking-widest font-bold border-b border-wms-border sticky top-0">
             <tr>
               <th class="p-4">Order ID</th>
               <th class="p-4">Client / Customer</th>
@@ -174,9 +174,9 @@
               v-for="order in orderStore.orders" 
               :key="order.id" 
               @click="selectedOrder = order"
-              class="border-b border-[#1e293b] hover:bg-white/[0.02] cursor-pointer group transition-colors"
+              class="border-b border-wms-border hover:bg-white/[0.02] cursor-pointer group transition-colors"
             >
-              <td class="p-4 font-mono font-bold text-white group-hover:text-indigo-400">{{ order.order_number }}</td>
+              <td class="p-4 font-mono font-bold text-wms-text group-hover:text-indigo-400">{{ order.order_number }}</td>
               <td class="p-4 opacity-80">{{ order.customer_name || 'Default Client' }}</td>
               <td class="p-4 font-mono">{{ order.items.length }}</td>
               <td class="p-4">

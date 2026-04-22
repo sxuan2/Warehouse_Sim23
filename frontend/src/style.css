@@ -1,1 +1,71 @@
 @import "tailwindcss";
+
+/* 1. 基础全局变量 (标准白) */
+:root {
+  --wms-bg: #f1f5f9;
+  --wms-surface: #ffffff;
+  --wms-header: #e2e8f0;
+  --wms-border: #cbd5e1;
+  --wms-text-main: #0f172a;
+  --wms-text-muted: #64748b;
+  --wms-accent: #4f46e5;
+}
+
+.theme-light {
+  --wms-bg: #f1f5f9;
+  --wms-surface: #ffffff;
+  --wms-header: #e2e8f0;
+  --wms-border: #cbd5e1;
+  --wms-text-main: #0f172a;
+  --wms-text-muted: #64748b;
+  --wms-accent: #4f46e5;
+}
+
+/* 2. 定义各个主题类名对应的变量值 */
+.theme-ocean {
+  --wms-bg: #020617;
+  --wms-surface: #0f172a;
+  --wms-header: #1e293b;
+  --wms-border: #334155;
+  --wms-text-main: #f1f5f9;
+  --wms-text-muted: #94a3b8;
+  --wms-accent: #06b6d4;
+}
+
+.theme-nordic {
+  --wms-bg: #f2f2eb;
+  --wms-surface: #ffffff;
+  --wms-header: #e5e7eb;
+  --wms-border: #d1d5db;
+  --wms-text-main: #2d3748;
+  --wms-text-muted: #718096;
+  --wms-accent: #6b8e23;
+}
+
+.theme-cyber {
+  --wms-bg: #0a0a0a;
+  --wms-surface: #171717;
+  --wms-header: #262626;
+  --wms-border: #404040;
+  --wms-text-main: #fafafa;
+  --wms-text-muted: #a3a3a3;
+  --wms-accent: #f59e0b;
+}
+
+/* 3. 在 Tailwind 4 中注册这些变量 */
+@theme {
+  --color-wms-bg: var(--wms-bg);
+  --color-wms-surface: var(--wms-surface);
+  --color-wms-header: var(--wms-header);
+  --color-wms-border: var(--wms-border);
+  --color-wms-text: var(--wms-text-main);
+  --color-wms-muted: var(--wms-text-muted);
+  --color-wms-primary: var(--wms-accent);
+}
+
+/* 4. 强制 Body 应用变量 */
+body {
+  background-color: var(--wms-bg);
+  color: var(--wms-text-main);
+  @apply antialiased transition-all duration-300;
+}

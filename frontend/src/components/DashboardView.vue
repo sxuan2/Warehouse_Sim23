@@ -1,12 +1,12 @@
 <template>
   <div class="space-y-6 animate-in fade-in duration-300 h-full overflow-y-auto">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
-      <div class="bg-[#0a0b0d] border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
+      <div class="bg-wms-bg border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
         <div class="absolute right-[-10px] top-[-10px] text-[#1e293b] opacity-10 group-hover:text-indigo-500 group-hover:opacity-10 transition-all">
           <BoxIcon :size="70" />
         </div>
         <div class="text-[9px] text-slate-600 uppercase tracking-[0.2em] mb-1 font-bold">Total Stock Units</div>
-        <div class="text-2xl font-bold text-white tracking-tighter">
+        <div class="text-2xl font-bold text-wms-text tracking-tighter">
           {{ totalStockUnits }}
         </div>
         <div class="text-[9px] mt-2 font-bold tracking-[0.1em] flex items-center gap-1 uppercase text-slate-500">
@@ -14,12 +14,12 @@
         </div>
       </div>
 
-      <div class="bg-[#0a0b0d] border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
+      <div class="bg-wms-bg border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
         <div class="absolute right-[-10px] top-[-10px] text-[#1e293b] opacity-10 group-hover:text-indigo-500 group-hover:opacity-10 transition-all">
           <ArrowRightLeftIcon :size="70" />
         </div>
         <div class="text-[9px] text-slate-600 uppercase tracking-[0.2em] mb-1 font-bold">Total Orders (System)</div>
-        <div class="text-2xl font-bold text-white tracking-tighter">
+        <div class="text-2xl font-bold text-wms-text tracking-tighter">
           {{ totalOrdersCount }}
         </div>
         <div class="text-[9px] mt-2 font-bold tracking-[0.1em] flex items-center gap-1 uppercase text-slate-500">
@@ -27,12 +27,12 @@
         </div>
       </div>
 
-      <div class="bg-[#0a0b0d] border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
+      <div class="bg-wms-bg border border-[#1e293b] p-5 flex flex-col relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
         <div class="absolute right-[-10px] top-[-10px] text-[#1e293b] opacity-10 group-hover:text-emerald-500 group-hover:opacity-10 transition-all">
           <TruckIcon :size="70" />
         </div>
         <div class="text-[9px] text-slate-600 uppercase tracking-[0.2em] mb-1 font-bold">Successfully Shipped</div>
-        <div class="text-2xl font-bold text-white tracking-tighter">
+        <div class="text-2xl font-bold text-wms-text tracking-tighter">
           {{ shippedOrdersCount }}
         </div>
         <div class="text-[9px] mt-2 font-bold tracking-[0.1em] flex items-center gap-1 uppercase text-emerald-500">
@@ -40,7 +40,7 @@
         </div>
       </div>
 
-      <div class="bg-[#0a0b0d] border border-amber-500/20 p-5 flex flex-col relative overflow-hidden group hover:border-amber-500/50 transition-colors">
+      <div class="bg-wms-bg border border-amber-500/20 p-5 flex flex-col relative overflow-hidden group hover:border-amber-500/50 transition-colors">
         <div class="absolute right-[-10px] top-[-10px] text-[#1e293b] opacity-10 group-hover:text-amber-500 group-hover:opacity-10 transition-all">
           <AlertTriangleIcon :size="70" />
         </div>
@@ -55,8 +55,8 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="col-span-2 bg-[#0a0b0d] border border-[#1e293b] p-6 flex flex-col h-[350px]">
-        <h3 class="text-xs font-bold text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+      <div class="col-span-2 bg-wms-bg border border-[#1e293b] p-6 flex flex-col h-[350px]">
+        <h3 class="text-xs font-bold text-wms-text uppercase tracking-widest mb-6 flex items-center gap-2">
           <ActivityIcon :size="14" class="text-indigo-400" />
           Recent Order Activity
         </h3>
@@ -83,7 +83,7 @@
               'bg-amber-500 text-amber-500'
             ]"></div>
             <span class="text-slate-500 w-24 font-mono font-bold">{{ order.order_number }}</span>
-            <span class="text-white flex-1 truncate">{{ order.customer_name || 'N/A' }}</span>
+            <span class="text-wms-text flex-1 truncate">{{ order.customer_name || 'N/A' }}</span>
             <span class="text-slate-500 font-mono">{{ order.items.length }} line(s)</span>
             <span :class="[
               'px-2 py-0.5 border text-[9px] font-bold uppercase tracking-widest rounded-sm',
@@ -97,7 +97,7 @@
         </div>
       </div>
 
-      <div class="bg-[#0a0b0d] border border-[#1e293b] p-6 flex flex-col items-center justify-center h-[350px]">
+      <div class="bg-wms-bg border border-[#1e293b] p-6 flex flex-col items-center justify-center h-[350px]">
         <div class="text-[10px] text-slate-500 uppercase font-bold mb-6 tracking-widest w-full text-left">System Health</div>
         <div class="relative w-40 h-40 flex items-center justify-center mb-6">
           <svg class="absolute w-full h-full -rotate-90">
@@ -105,7 +105,7 @@
             <circle cx="80" cy="80" r="70" fill="transparent" stroke="#10b981" stroke-width="4" stroke-dasharray="440" stroke-dashoffset="0" class="transition-all duration-1000" />
           </svg>
           <div class="text-center">
-            <div class="text-3xl font-bold text-white tracking-tighter">100%</div>
+            <div class="text-3xl font-bold text-wms-text tracking-tighter">100%</div>
             <div class="text-[9px] text-emerald-500 uppercase font-bold tracking-widest mt-1">Operational</div>
           </div>
         </div>
@@ -116,7 +116,7 @@
            </div>
            <div class="flex justify-between items-center">
              <span class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">API Latency</span>
-             <span class="text-[9px] text-white font-mono font-bold">&lt; 50ms</span>
+             <span class="text-[9px] text-wms-text font-mono font-bold">&lt; 50ms</span>
            </div>
         </div>
       </div>

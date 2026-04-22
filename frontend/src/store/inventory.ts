@@ -15,9 +15,19 @@ export interface Location {
 
 export interface InventoryItem {
     id: string;
-    sku_details: Sku;
-    location_details: Location;
+    sku: string;
+    sku_details: {
+        part_number: string;
+        description: string;
+    };
+    bin: string;
+    location_details: {
+        name: string;
+    };
+    client: string;
+    client_name: string; // [NEW]
     qty: number;
+    lot_number: string | null;
 }
 
 export interface ReceiveStockPayload {

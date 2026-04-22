@@ -1,10 +1,31 @@
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
 
 class Client(models.Model):
+    class StatusChoices(models.TextChoices):
+        ACTIVE = 'ACTIVE', _('Active')
+        INACTIVE = 'INACTIVE', _('Inactive')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255, verbose_name="Client Name")
+    name = models.CharField(max_length=255, verbose_name="Company Name")
+    alias_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="Alias/External ID")
+    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE, verbose_name="Status")
+    phone = models.CharField(max_length=50, null=True, blank=True, verbose_name="Phone Number")
+    fax = models.CharField(max_length=50, null=True, blank=True, verbose_name="Fax Number")
+    website = models.URLField(max_length=255, null=True, blank=True, verbose_name="Website")
+    email = models.EmailField(null=True, blank=True, verbose_name="Email")
+    country = models.CharField(max_length=100, null=True, blank=True, verbose_name="Country")
+    address1 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 1")
+    address2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 2")
+    state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State/Province")
+    city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City/Township")
+    postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Zip/Postal")
+    contact_name = models.CharField(max_length=100, null=True, blank=True, verbose_name="Primary Contact Name")
+    contact_phone = models.CharField(max_length=50, null=True, blank=True, verbose_name="Primary Contact Phone")
+    contact_email = models.EmailField(null=True, blank=True, verbose_name="Primary Contact Email")
+    warehouses = models.ManyToManyField('Warehouse', related_name='clients', blank=True, verbose_name="Accessible Warehouses")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
@@ -14,7 +35,7 @@ class Client(models.Model):
         verbose_name_plural = "Clients"
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_status_display()})"
 
 class Warehouse(models.Model):
     class StatusChoices(models.TextChoices):
@@ -28,7 +49,7 @@ class Warehouse(models.Model):
     address1 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 1")
     address2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 2")
     country = models.CharField(max_length=100, null=True, blank=True, verbose_name="Country")
-    state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State/Province")
+    state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State")
     city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City")
     postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Postal Code")
     time_zone = models.CharField(max_length=100, null=True, blank=True, verbose_name="Time Zone")
@@ -48,17 +69,28 @@ class Warehouse(models.Model):
 
 class Location(models.Model):
     class TypeChoices(models.TextChoices):
-        STORAGE = 'STORAGE', _('Storage')
-        DOCK = 'DOCK', _('Dock')
-        PACKING = 'PACKING', _('Packing')
-        PICKING = 'PICKING', _('Picking')
-        BULK = 'BULK', _('Bulk')
+        STORAGE = 'STORAGE', _('Storage location')
+        STAGING = 'STAGING', _('Staging location')
+        PUTAWAY = 'PUTAWAY', _('Put-away vehicle')
+        QUARANTINE = 'QUARANTINE', _('Quarantine')
+        PICKLINE = 'PICKLINE', _('PickLine')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255, unique=True, verbose_name="Location Name")
-    zone = models.CharField(max_length=100, null=True, blank=True, verbose_name="Location Zone")
-    type = models.CharField(max_length=50, choices=TypeChoices.choices, default=TypeChoices.PICKING, verbose_name="Location Type")
+    name = models.CharField(max_length=255, unique=True, verbose_name="Location ID")
     warehouse = models.ForeignKey(Warehouse, on_delete=models.RESTRICT, related_name='locations', null=True, blank=True, verbose_name="Warehouse")
+    type = models.CharField(max_length=50, choices=TypeChoices.choices, default=TypeChoices.STORAGE, verbose_name="Location Type Identifier")
+    zone = models.CharField(max_length=100, null=True, blank=True, verbose_name="Location Zone")
+    description = models.CharField(max_length=255, null=True, blank=True, verbose_name="Location Description")
+    pick_path = models.IntegerField(default=0, verbose_name="Pick Path")
+    is_non_pickable = models.BooleanField(default=False, verbose_name="Non-pickable")
+    width = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Width")
+    length = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Length")
+    height = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Height")
+    max_weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Max Weight")
+    min_temperature = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Min Temperature")
+    min_quantity = models.IntegerField(default=0, verbose_name="Min Quantity")
+    allocation_priority = models.IntegerField(default=10, verbose_name="Allocation Priority")
+    billing_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="Billing Type")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
 
     class Meta:
@@ -74,7 +106,7 @@ class Sku(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='skus', verbose_name="Client")
     part_number = models.CharField(max_length=100, verbose_name="Part Number (SKU)")
     description = models.TextField(null=True, blank=True, verbose_name="Description")
-    track_by = models.CharField(max_length=50, default="NONE", verbose_name="Track By")
+    track_by = models.CharField(max_length=50, default="NONE", verbose_name="Tracking Method")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
@@ -85,25 +117,24 @@ class Sku(models.Model):
         verbose_name_plural = "SKUs"
 
     def __str__(self):
-        return self.part_number
+        return f"{self.part_number} ({self.client.name})"
 
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sku = models.ForeignKey(Sku, on_delete=models.RESTRICT, related_name='inventory', verbose_name="SKU")
-    bin = models.ForeignKey(Location, on_delete=models.RESTRICT, related_name='inventory', verbose_name="Location")
+    bin = models.ForeignKey(Location, on_delete=models.RESTRICT, related_name='inventory', verbose_name="Bin Location")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='inventory', verbose_name="Client")
-    qty = models.IntegerField(default=0, verbose_name="On-hand Quantity")
+    qty = models.IntegerField(default=0, verbose_name="Quantity")
     serial_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Serial Number")
     lot_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Lot Number")
     expiry_date = models.DateTimeField(null=True, blank=True, verbose_name="Expiry Date")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Last Updated")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     class Meta:
         db_table = 'wms_inventory'
-        # Matches Prisma's @@unique([skuId, binId, serialNumber, lotNumber])
         unique_together = ('sku', 'bin', 'serial_number', 'lot_number')
         verbose_name = "Inventory"
-        verbose_name_plural = "Inventory Details"
+        verbose_name_plural = "Inventory Records"
 
     def __str__(self):
         return f"{self.sku.part_number} | {self.bin.name} | Qty: {self.qty}"
@@ -119,9 +150,9 @@ class InventoryTransaction(models.Model):
     type = models.CharField(max_length=50, choices=TypeChoices.choices, verbose_name="Transaction Type")
     sku = models.ForeignKey(Sku, on_delete=models.RESTRICT, related_name='transactions', verbose_name="SKU")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='transactions', verbose_name="Client")
-    change_qty = models.IntegerField(verbose_name="Change Quantity")
-    from_bin = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions_from', verbose_name="From Location")
-    to_bin = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions_to', verbose_name="To Location")
+    change_qty = models.IntegerField(verbose_name="Quantity Changed")
+    from_bin = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions_from', verbose_name="From Bin")
+    to_bin = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions_to', verbose_name="To Bin")
     reference_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="Reference ID")
     reason = models.CharField(max_length=255, null=True, blank=True, verbose_name="Reason")
     serial_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Serial Number")
@@ -133,81 +164,77 @@ class InventoryTransaction(models.Model):
         verbose_name = "Inventory Transaction"
         verbose_name_plural = "Inventory Transactions"
 
-    def __str__(self):
-        return f"{self.get_type_display()} | {self.sku.part_number} | {self.change_qty}"
-
 class OutboundOrder(models.Model):
     class StatusChoices(models.TextChoices):
         PENDING = 'PENDING', _('Pending')
         PROCESSING = 'PROCESSING', _('Processing')
         SHIPPED = 'SHIPPED', _('Shipped')
+        COMPLETE = 'COMPLETE', _('Complete')
+        CLOSED = 'CLOSED', _('Closed')
         CANCELLED = 'CANCELLED', _('Cancelled')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order_number = models.CharField(max_length=100, unique=True, verbose_name="Order Number")
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='orders', verbose_name="Client")
-    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING, verbose_name="Status")
-    customer_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Customer Name (Ship-To)")
+    client = models.ForeignKey('Client', on_delete=models.CASCADE, related_name='orders', verbose_name="Customer")
+    warehouse = models.ForeignKey('Warehouse', on_delete=models.RESTRICT, related_name='orders', null=True, blank=True, verbose_name="Warehouse")
     
-    # Basic Order Info
-    warehouse_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Ship-From Warehouse")
-    transaction_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction ID")
-    purchase_order = models.CharField(max_length=100, null=True, blank=True, verbose_name="Purchase Order (PO)")
+    order_number = models.CharField(max_length=100, unique=True, verbose_name="Reference Number")
+    
+    # [FIX] Added null=True, blank=True to allow migration of existing rows with null transaction_ids
+    transaction_id = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name="Transaction ID")
+    
+    purchase_order = models.CharField(max_length=100, null=True, blank=True, verbose_name="Purchase Order")
+    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING, verbose_name="Status")
     earliest_ship_date = models.DateTimeField(null=True, blank=True, verbose_name="Earliest Ship Date")
     ship_cancel_date = models.DateTimeField(null=True, blank=True, verbose_name="Ship Cancel Date")
-    
-    # Contact and Address
-    contact_code = models.CharField(max_length=100, null=True, blank=True, verbose_name="Contact Code")
+    created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Created By")
+
     recipient_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Recipient Name")
+    company_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Company Name")
     phone = models.CharField(max_length=50, null=True, blank=True, verbose_name="Phone")
     email = models.EmailField(null=True, blank=True, verbose_name="Email")
     address1 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 1")
     address2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 2")
     country = models.CharField(max_length=100, null=True, blank=True, verbose_name="Country")
     state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State/Province")
-    city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City")
-    postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Postal Code")
+    city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City/Township")
+    postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Zip/Postal")
+    
     retailer_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="Retailer ID")
     department_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Department Number")
-    
-    # Summary Data
-    total_packages = models.IntegerField(null=True, blank=True, verbose_name="Total Packages")
-    packaging_uom = models.CharField(max_length=50, null=True, blank=True, verbose_name="Packaging UOM")
-    total_weight = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, verbose_name="Total Weight")
-    total_volume = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, verbose_name="Total Volume")
-    
-    # Carrier and Routing
+
     carrier = models.CharField(max_length=100, null=True, blank=True, verbose_name="Carrier")
-    scac = models.CharField(max_length=50, null=True, blank=True, verbose_name="SCAC Code")
-    service = models.CharField(max_length=100, null=True, blank=True, verbose_name="Service Type")
+    scac = models.CharField(max_length=50, null=True, blank=True, verbose_name="SCAC")
+    service = models.CharField(max_length=100, null=True, blank=True, verbose_name="Service")
     billing_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="Billing Type")
     account_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Account Number")
-    account_zip = models.CharField(max_length=50, null=True, blank=True, verbose_name="Account Zip Code")
+    account_zip = models.CharField(max_length=50, null=True, blank=True, verbose_name="Account Zip/Postal")
     tracking_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Tracking Number")
     warehouse_instructions = models.TextField(null=True, blank=True, verbose_name="Warehouse Instructions")
     carrier_instructions = models.TextField(null=True, blank=True, verbose_name="Carrier Instructions")
+    
     load_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Load Number")
     bol_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="BOL Number")
     trailer_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Trailer Number")
     seal_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Seal Number")
     door = models.CharField(max_length=50, null=True, blank=True, verbose_name="Door")
     capacity_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="Capacity Type")
-    pickup_date = models.DateTimeField(null=True, blank=True, verbose_name="Pickup Date")
-    
-    # Shipment Requirements
-    require_return_receipt = models.BooleanField(default=False, verbose_name="Require Return Receipt")
-    saturday_delivery = models.BooleanField(default=False, verbose_name="Saturday Delivery")
-    residential_delivery = models.BooleanField(default=False, verbose_name="Residential Delivery")
+    pickup_date = models.DateTimeField(null=True, blank=True, verbose_name="Pickup Date/Time")
+
+    require_return_receipt = models.BooleanField(default=False, verbose_name="Require return receipt")
+    saturday_delivery = models.BooleanField(default=False, verbose_name="Saturday delivery")
+    residential_delivery = models.BooleanField(default=False, verbose_name="Residential delivery")
     insurance = models.BooleanField(default=False, verbose_name="Insurance")
-    insurance_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="Insurance Type")
-    insurance_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Insurance Amount")
-    delivery_confirmation = models.CharField(max_length=100, null=True, blank=True, verbose_name="Delivery Confirmation")
-    dry_weight = models.CharField(max_length=100, null=True, blank=True, verbose_name="Dry Weight")
-    intl_contents_type = models.CharField(max_length=100, null=True, blank=True, verbose_name="International Contents Type")
-    intl_non_delivery = models.CharField(max_length=100, null=True, blank=True, verbose_name="International Non-Delivery Instructions")
+    insurance_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Insurance Amount")
     
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+    total_packages = models.IntegerField(default=0, verbose_name="Total Packages")
+    packaging_uom = models.CharField(max_length=50, null=True, blank=True, verbose_name="Packaging UOM")
+    total_weight = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name="Total Weight lbs")
+    total_movable_units = models.IntegerField(default=0, verbose_name="Total Movable Units")
+    mu_uom = models.CharField(max_length=50, null=True, blank=True, verbose_name="Movable Unit UOM")
+    total_volume = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name="Total Volume cu ft")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'wms_outbound_order'
@@ -215,41 +242,72 @@ class OutboundOrder(models.Model):
         verbose_name_plural = "Outbound Orders"
 
     def __str__(self):
-        return f"{self.order_number} - {self.get_status_display()}"
+        return f"{self.order_number} ({self.client.name})"
 
 class OutboundOrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.ForeignKey(OutboundOrder, on_delete=models.CASCADE, related_name='items', verbose_name="Order")
-    sku = models.ForeignKey(Sku, on_delete=models.RESTRICT, related_name='outbound_order_items', verbose_name="SKU")
-    qty = models.IntegerField(verbose_name="Quantity Ordered")
-    picked_qty = models.IntegerField(default=0, verbose_name="Quantity Picked")
-    uom = models.CharField(max_length=50, null=True, blank=True, verbose_name="UOM")
-    volume = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, verbose_name="Volume")
-    weight = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, verbose_name="Weight")
-    price = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Unit Price")
+    order = models.ForeignKey(OutboundOrder, on_delete=models.CASCADE, related_name='items')
+    sku = models.ForeignKey('Sku', on_delete=models.RESTRICT, related_name='order_items')
+    qty = models.IntegerField(verbose_name="Quantity")
+    uom = models.CharField(max_length=50, default="Each", verbose_name="Primary Units")
+    volume = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    weight = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:
         db_table = 'wms_outbound_order_item'
-        verbose_name = "Order Item"
-        verbose_name_plural = "Order Items"
 
-    def __str__(self):
-        return f"{self.order.order_number} - {self.sku.part_number} (Qty: {self.qty})"
+class Receipt(models.Model):
+    class StatusChoices(models.TextChoices):
+        OPEN = 'OPEN', _('Open')
+        COMPLETE = 'COMPLETE', _('Complete')
+        CLOSED = 'CLOSED', _('Closed')
+        CANCELLED = 'CANCELLED', _('Canceled')
 
-class OrderCharge(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.ForeignKey(OutboundOrder, on_delete=models.CASCADE, related_name='charges', verbose_name="Order")
-    origin = models.CharField(max_length=100, null=True, blank=True, verbose_name="Charge Origin")
-    category = models.CharField(max_length=100, null=True, blank=True, verbose_name="Category")
-    label = models.CharField(max_length=255, null=True, blank=True, verbose_name="Label")
-    per_unit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Price Per Unit")
-    units = models.IntegerField(null=True, blank=True, verbose_name="Units")
-    total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Total")
+    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.OPEN, verbose_name="Status")
+    
+    # [FIX] Also added null=True to Receipt transaction_id to prevent potential next error
+    transaction_id = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name="Transaction ID")
+    
+    reference_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Reference Number")
+    client = models.ForeignKey('Client', on_delete=models.CASCADE, related_name='receipts', verbose_name="Customer")
+    warehouse = models.ForeignKey('Warehouse', on_delete=models.RESTRICT, related_name='receipts', null=True, blank=True, verbose_name="Warehouse")
+    arrival_date = models.DateTimeField(null=True, blank=True, verbose_name="Arrival Date")
+    expected_arrival_date = models.DateTimeField(null=True, blank=True, verbose_name="Expected Arrival Date")
+    trailer_pro_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Trailer/Pro Number")
+    purchase_order_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Purchase Order Number")
+    receipt_advice_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Receipt Advice Number")
+    notes = models.TextField(null=True, blank=True, verbose_name="Notes")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'wms_order_charge'
-        verbose_name = "Order Charge"
-        verbose_name_plural = "Order Charges"
+        db_table = 'wms_receipt'
+        verbose_name = "Receipt"
+        verbose_name_plural = "Receipts"
 
     def __str__(self):
-        return f"{self.order.order_number} Charge - {self.label}"
+        return f"{self.transaction_id} ({self.client.name})"
+
+class ReceiptItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name='items')
+    sku = models.ForeignKey('Sku', on_delete=models.RESTRICT, related_name='receipt_items')
+    qty = models.IntegerField(verbose_name="Qty (Pallet)")
+    weight_lbs = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    lot_number = models.CharField(max_length=100, null=True, blank=True)
+    expiration_date = models.DateField(null=True, blank=True)
+    mu_label = models.CharField(max_length=100, null=True, blank=True, verbose_name="MU Label")
+    split_mu = models.BooleanField(default=False)
+    primary_units_per_mu = models.IntegerField(null=True, blank=True)
+    mu_type = models.CharField(max_length=100, null=True, blank=True)
+    length_in = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    width_in = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    height_in = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    mu_weight_lbs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    putaway_location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True)
+    is_on_hold = models.BooleanField(default=False)
+    custom_fields = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = 'wms_receipt_item'
