@@ -16,6 +16,7 @@ export interface AuditTransaction {
 
 export const useAuditStore = defineStore('audit', {
     state: () => ({
+        // 初始值必须是数组
         transactions: [] as AuditTransaction[],
         isLoading: false,
         error: null as string | null,
@@ -27,9 +28,11 @@ export const useAuditStore = defineStore('audit', {
             this.error = null;
             try {
                 const response = await apiClient.get('/warehouses/transactions/');
-                this.transactions = response.data;
+                // 确保赋值始终为数组
+                this.transactions = response.data || [];
             } catch (err: any) {
                 this.error = err.response?.data?.error || err.message;
+                this.transactions = [];
             } finally {
                 this.isLoading = false;
             }

@@ -3,18 +3,26 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import datetime
 from warehouses.models import (
-    Client, Warehouse, Location, Sku, Inventory, 
-    InventoryTransaction, OutboundOrder, OutboundOrderItem, OrderCharge
+    Client, Country, Warehouse, Location, Sku, Inventory,
+    InventoryTransaction, OutboundOrder, OutboundOrderItem, Receipt, ReceiptItem
 )
 
 class Command(BaseCommand):
     help = 'Seeds the database with detailed multi-client WMS data'
 
+    def _country(self, code: str, name: str):
+        country, _ = Country.objects.get_or_create(code=code, defaults={'name': name})
+        if country.name != name:
+            country.name = name
+            country.save(update_fields=['name'])
+        return country
+
     @transaction.atomic
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.WARNING('>>> DATA_OPS: CLEANING EXISTING DATA'))
         
-        OrderCharge.objects.all().delete()
+        ReceiptItem.objects.all().delete()
+        Receipt.objects.all().delete()
         OutboundOrderItem.objects.all().delete()
         OutboundOrder.objects.all().delete()
         InventoryTransaction.objects.all().delete()
@@ -26,9 +34,12 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('>>> DATA_OPS: CREATING NEW SEED DATA WITH MULTIPLE CLIENTS'))
 
+        canada = self._country('CA', 'Canada')
+        united_states = self._country('US', 'United States')
+        united_kingdom = self._country('GB', 'United Kingdom')
+
         # --- 1. Create Multiple Clients ---
         
-        # Client 1: Based strictly on the provided image
         client_mad_barn = Client.objects.create(
             name='MAD BARN INC.',
             alias_id='MADBONKITA',
@@ -36,10 +47,10 @@ class Command(BaseCommand):
             fax='',
             website='',
             email='',
-            country='Canada',
+            country=canada,
             address1='1465 STRASBURG ROAD',
             address2='',
-            state='Ontario',
+            state='ON',
             city='KITCHNER',
             postal_code='N2R 1H2',
             contact_name='Sadia SaiF',
@@ -47,7 +58,6 @@ class Command(BaseCommand):
             contact_email=''
         )
 
-        # Client 2: A dummy technology client
         client_techflow = Client.objects.create(
             name='TechFlow Logistics',
             alias_id='TECHFLOW_01',
@@ -55,10 +65,10 @@ class Command(BaseCommand):
             fax='1-800-555-0198',
             website='https://techflow-logistics.example.com',
             email='support@techflow.example.com',
-            country='United States',
+            country=united_states,
             address1='4000 Innovation Parkway',
             address2='Suite 200',
-            state='California',
+            state='CA',
             city='San Jose',
             postal_code='95134',
             contact_name='Alexander Chen',
@@ -66,7 +76,6 @@ class Command(BaseCommand):
             contact_email='achen@techflow.example.com'
         )
 
-        # Client 3: A dummy global trading client
         client_global = Client.objects.create(
             name='Global Traders LLC',
             alias_id='GLB_TRD_LLC',
@@ -74,10 +83,10 @@ class Command(BaseCommand):
             fax='',
             website='https://global-traders.example.co.uk',
             email='operations@global-traders.example.co.uk',
-            country='United Kingdom',
+            country=united_kingdom,
             address1='150 London Wall',
             address2='',
-            state='Greater London',
+            state='ENG',
             city='London',
             postal_code='EC2Y 5HN',
             contact_name='Sarah Jenkins',
@@ -91,11 +100,11 @@ class Command(BaseCommand):
             code='CALG',
             zone='A',
             address1='510 Carmek Blvd.',
-            country='Canada',
+            country=canada,
             state='AB',
             city='S.E Calgary',
             postal_code='T2C 4X7',
-            time_zone='(UTC-07:00) Mountain Time (Canada)',
+            time_zone='America/Edmonton',
             phone='403-555-1100',
             status='ACTIVE'
         )
@@ -105,31 +114,28 @@ class Command(BaseCommand):
             code='PCDL',
             zone='B',
             address1='27433 52nd Avenue',
-            country='Canada',
-            state='British Columbia',
+            country=canada,
+            state='BC',
             city='Langley',
             postal_code='V4W 4B2',
-            time_zone='(UTC-08:00) Pacific Time (US & Canada)',
+            time_zone='America/Vancouver',
             phone='604-888-8489',
             status='ACTIVE'
         )
 
         # --- 3. Create Locations (Bins) ---
-        loc_calg_pick_1 = Location.objects.create(name='A-10-01', zone='Pick', type='PICKING', warehouse=calgary_wh)
-        loc_calg_pick_2 = Location.objects.create(name='A-10-02', zone='Pick', type='PICKING', warehouse=calgary_wh)
-        loc_lang_bulk_1 = Location.objects.create(name='B-20-01', zone='Bulk', type='BULK', warehouse=langley_wh)
+        loc_calg_pick_1 = Location.objects.create(name='A-10-01', zone='Pick', type='PICKLINE', warehouse=calgary_wh)
+        loc_calg_pick_2 = Location.objects.create(name='A-10-02', zone='Pick', type='PICKLINE', warehouse=calgary_wh)
+        loc_lang_bulk_1 = Location.objects.create(name='B-20-01', zone='Bulk', type='STORAGE', warehouse=langley_wh)
 
         # --- 4. Create SKUs for different clients ---
-        
-        # SKUs for MAD BARN
+
         sku_mb_1 = Sku.objects.create(client=client_mad_barn, part_number='628055180036', description='Omneity - Equine Mineral and Vitamin Premix - 25 kg')
         sku_mb_2 = Sku.objects.create(client=client_mad_barn, part_number='628055180159', description='Optimum Probiotics - 60 GRAM')
 
-        # SKUs for TechFlow
         sku_tf_1 = Sku.objects.create(client=client_techflow, part_number='TF-GPU-4090', description='NVIDIA RTX 4090 Graphics Card')
         sku_tf_2 = Sku.objects.create(client=client_techflow, part_number='TF-SSD-2TB', description='2TB NVMe Solid State Drive')
 
-        # SKUs for Global Traders
         sku_gl_1 = Sku.objects.create(client=client_global, part_number='GL-COF-001', description='Premium Arabica Coffee Beans - 1kg')
 
         # --- 5. Populate Inventory ---
@@ -144,28 +150,69 @@ class Command(BaseCommand):
         order_mb = OutboundOrder.objects.create(
             order_number="20260417-MADBARN-01",
             client=client_mad_barn,
+            warehouse=calgary_wh,
             status='PENDING',
-            customer_name=client_mad_barn.name,
-            warehouse_name='Calgary Warehouse',
             earliest_ship_date=ship_date,
             recipient_name=client_mad_barn.contact_name,
+            company_name=client_mad_barn.name,
             address1=client_mad_barn.address1,
             city=client_mad_barn.city,
             state=client_mad_barn.state,
-            country=client_mad_barn.country
+            country=client_mad_barn.country.name,
+            purchase_order='PO-20260417-001',
+            tracking_number=''
         )
         OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_1, qty=10, uom='Bag', price=45.0)
+        OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_2, qty=6, uom='Case', price=18.5)
 
         order_tf = OutboundOrder.objects.create(
             order_number="20260418-TECHFLOW-99",
             client=client_techflow,
+            warehouse=langley_wh,
             status='PROCESSING',
-            customer_name=client_techflow.name,
-            warehouse_name='Langley Warehouse',
             earliest_ship_date=ship_date,
+            recipient_name=client_techflow.contact_name,
+            company_name=client_techflow.name,
             city='San Jose',
-            country='United States'
+            country=client_techflow.country.name,
+            purchase_order='PO-20260418-099'
         )
         OutboundOrderItem.objects.create(order=order_tf, sku=sku_tf_1, qty=2, uom='Box', price=1599.99)
+
+        # --- 7. Create Receipts ---
+        receipt = Receipt.objects.create(
+            transaction_id='RCV-20260422-001',
+            reference_number='ASN-10001',
+            client=client_mad_barn,
+            warehouse=calgary_wh,
+            status='OPEN',
+            arrival_date=ship_date,
+            trailer_pro_number='PRO-778899',
+            purchase_order_number='PO-20260417-001',
+            notes='Sample inbound receipt for dashboard data.'
+        )
+        ReceiptItem.objects.create(receipt=receipt, sku=sku_mb_1, qty=12, lot_number='LOT-MB-2404', mu_label='MU-0001', putaway_location=loc_calg_pick_1)
+
+        # --- 8. Create Transactions ---
+        InventoryTransaction.objects.create(
+            type='INBOUND',
+            sku=sku_mb_1,
+            client=client_mad_barn,
+            change_qty=12,
+            from_bin=None,
+            to_bin=loc_calg_pick_1,
+            reference_id=receipt.id,
+            reason='Seed receipt'
+        )
+        InventoryTransaction.objects.create(
+            type='OUTBOUND',
+            sku=sku_tf_1,
+            client=client_techflow,
+            change_qty=-2,
+            from_bin=loc_lang_bulk_1,
+            to_bin=None,
+            reference_id=order_tf.id,
+            reason='Seed order'
+        )
 
         self.stdout.write(self.style.SUCCESS('>>> SYSTEM_DB_TABLES POPULATED SUCCESSFULLY'))

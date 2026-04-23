@@ -47,8 +47,8 @@
         </div>
         <div class="space-y-6">
           <div>
-            <label class="block text-[9px] text-slate-500 uppercase font-bold mb-2">Transaction ID *</label>
-            <input v-model="form.transaction_id" type="text" class="w-full bg-wms-surface border border-wms-border text-wms-text p-2.5 text-xs outline-none font-mono" placeholder="REC-2026-XXXX">
+            <label class="block text-[9px] text-slate-500 uppercase font-bold mb-2">Transaction ID (Auto)</label>
+            <input v-model="form.transaction_id" type="text" readonly placeholder="Auto-generated on save" class="w-full bg-wms-surface/60 border border-wms-border text-slate-400 p-2.5 text-xs outline-none font-mono cursor-not-allowed">
           </div>
         </div>
       </div>
@@ -179,12 +179,15 @@ const clearErrors = () => { receiptStore.error = null; localError.value = null; 
 
 const submitForm = async () => {
   clearErrors();
-  if (!form.client_id || !form.warehouse_id || !form.transaction_id) {
+  if (!form.client_id || !form.warehouse_id) {
     activeTab.value = 'basics';
-    localError.value = "VALIDATION: Client, Warehouse, and Trans ID are required.";
+    localError.value = "VALIDATION: Client and Warehouse are required.";
     return;
   }
   const payload = JSON.parse(JSON.stringify(form));
+  if (!payload.transaction_id?.trim()) {
+    delete payload.transaction_id;
+  }
   payload.items.forEach((item: any) => { if (item.putaway_location_id === '') item.putaway_location_id = null; });
   try {
     await receiptStore.createReceipt(payload);

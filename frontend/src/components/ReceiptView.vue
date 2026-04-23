@@ -5,7 +5,7 @@
       <div>
         <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Inbound Receipts Flow</div>
         <div class="text-[10px] text-slate-500 mt-1">
-          Review incoming shipments. Finalizing (COMPLETE) is restricted to Admin portal for inventory integrity.
+          Lifecycle: OPEN => COMPLETE => RECEIVED. Inventory updates only when RECEIVED.
         </div>
       </div>
       <div class="flex gap-4">
@@ -13,9 +13,13 @@
           <div class="text-[9px] uppercase font-bold tracking-widest text-amber-400">Open</div>
           <div class="text-lg font-bold text-wms-text">{{ openCount }}</div>
         </div>
-        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 min-w-[100px]">
+        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-2 min-w-[100px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">Complete</div>
           <div class="text-lg font-bold text-wms-text">{{ completeCount }}</div>
+        </div>
+        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 min-w-[100px]">
+          <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">Received</div>
+          <div class="text-lg font-bold text-wms-text">{{ receivedCount }}</div>
         </div>
       </div>
     </div>
@@ -34,7 +38,8 @@
           <div class="flex items-center gap-3">
             <span :class="[
               'px-2 py-0.5 border text-[10px] font-bold tracking-widest rounded-sm',
-              selectedReceipt.status === 'COMPLETE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+              selectedReceipt.status === 'RECEIVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+              selectedReceipt.status === 'COMPLETE' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 
               selectedReceipt.status === 'OPEN' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
               'bg-slate-500/10 text-slate-400 border-slate-500/20'
             ]">
@@ -44,6 +49,44 @@
               Ref: <span class="text-indigo-400">{{ selectedReceipt.transaction_id }}</span>
             </span>
           </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            v-if="selectedReceipt.status === 'OPEN'"
+            @click="setStatus('COMPLETE')"
+            :disabled="receiptStore.isLoading"
+            class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-wms-text text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest"
+          >
+            Mark COMPLETE
+          </button>
+
+          <button
+            v-if="selectedReceipt.status === 'COMPLETE'"
+            @click="setStatus('RECEIVED')"
+            :disabled="receiptStore.isLoading"
+            class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-wms-text text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest"
+          >
+            Mark RECEIVED
+          </button>
+
+          <button
+            v-if="selectedReceipt.status === 'COMPLETE'"
+            @click="setStatus('OPEN')"
+            :disabled="receiptStore.isLoading"
+            class="bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-30 text-amber-300 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest border border-amber-500/30"
+          >
+            Revert OPEN
+          </button>
+
+          <button
+            v-if="selectedReceipt.status === 'RECEIVED'"
+            @click="setStatus('COMPLETE')"
+            :disabled="receiptStore.isLoading"
+            class="bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-30 text-amber-300 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest border border-amber-500/30"
+          >
+            Revert COMPLETE
+          </button>
         </div>
       </div>
 
@@ -152,7 +195,8 @@
               <td class="p-4">
                 <span :class="[
                   'px-2 py-0.5 border text-[9px] font-bold tracking-widest rounded-sm',
-                  receipt.status === 'COMPLETE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                  receipt.status === 'RECEIVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                  receipt.status === 'COMPLETE' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 
                   receipt.status === 'OPEN' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                   'bg-slate-500/10 text-slate-400 border-slate-500/20'
                 ]">
@@ -190,6 +234,18 @@ const activeSubTab = ref('items');
 
 const openCount = computed(() => receiptStore.receipts.filter(r => r.status === 'OPEN').length);
 const completeCount = computed(() => receiptStore.receipts.filter(r => r.status === 'COMPLETE').length);
+const receivedCount = computed(() => receiptStore.receipts.filter(r => r.status === 'RECEIVED').length);
+
+const setStatus = async (status: 'OPEN' | 'COMPLETE' | 'RECEIVED') => {
+  const key = selectedReceipt.value?.transaction_id || selectedReceipt.value?.id;
+  if (!key) return;
+  try {
+    const updated = await receiptStore.updateReceiptStatus(key, status);
+    selectedReceipt.value = updated;
+  } catch (e) {
+    // error handled in store
+  }
+};
 
 onMounted(() => {
   receiptStore.fetchReceipts();

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
+import re
 from .models import (
     Client, Warehouse, Location, Sku, Inventory, 
     OutboundOrder, OutboundOrderItem, InventoryTransaction,
@@ -57,17 +58,37 @@ class OutboundOrderSerializer(serializers.ModelSerializer):
     client_id = serializers.UUIDField(write_only=True)
     warehouse_id = serializers.UUIDField(write_only=True)
     client_name = serializers.CharField(source='client.name', read_only=True)
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
 
     class Meta:
         model = OutboundOrder
         fields = '__all__'
         read_only_fields = ('client', 'warehouse')
 
+    def _next_transaction_id(self) -> str:
+        existing_ids = OutboundOrder.objects.exclude(
+            transaction_id__isnull=True
+        ).exclude(
+            transaction_id=''
+        ).values_list('transaction_id', flat=True)
+
+        max_numeric = 0
+        for value in existing_ids:
+            match = re.search(r'(\d+)$', str(value))
+            if match:
+                max_numeric = max(max_numeric, int(match.group(1)))
+
+        return f"{max_numeric + 1:06d}"
+
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
+
+        transaction_id = validated_data.get('transaction_id')
+        if not transaction_id:
+            validated_data['transaction_id'] = self._next_transaction_id()
         
         client = Client.objects.get(id=client_id)
         warehouse = Warehouse.objects.get(id=warehouse_id)
@@ -127,14 +148,36 @@ class ReceiptSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('client', 'warehouse')
 
+    def _next_transaction_id(self) -> str:
+        existing_ids = Receipt.objects.exclude(
+            transaction_id__isnull=True
+        ).exclude(
+            transaction_id=''
+        ).values_list('transaction_id', flat=True)
+
+        max_numeric = 0
+        for value in existing_ids:
+            match = re.search(r'(\d+)$', str(value))
+            if match:
+                max_numeric = max(max_numeric, int(match.group(1)))
+
+        return f"RCV{max_numeric + 1:06d}"
+
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
+
+        transaction_id = validated_data.get('transaction_id')
+        if not transaction_id:
+            validated_data['transaction_id'] = self._next_transaction_id()
         
         validated_data['client'] = Client.objects.get(id=client_id)
         validated_data['warehouse'] = Warehouse.objects.get(id=warehouse_id)
+
+        if not validated_data.get('status'):
+            validated_data['status'] = Receipt.StatusChoices.OPEN
 
         receipt = Receipt.objects.create(**validated_data)
 

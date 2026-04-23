@@ -2,10 +2,14 @@ from django.contrib import admin
 from django.db import transaction
 from django.utils import timezone
 from .models import (
-    Client, Warehouse, Location, Sku, Inventory, 
+    Client, CountryTimezone, Warehouse, Location, Sku, Inventory, 
     InventoryTransaction, OutboundOrder, OutboundOrderItem,
-    Receipt, ReceiptItem
+    Receipt, ReceiptItem, Country, Region
 )
+
+admin.site.register(Country)
+admin.site.register(Region)
+admin.site.register(CountryTimezone)
 
 # -----------------------------------------------------------------------------------------
 # 1. CLIENT ADMIN (支持仓库多对多权限分配)
@@ -41,12 +45,23 @@ class ClientAdmin(admin.ModelAdmin):
             'fields': ('warehouses',)
         }),
     )
+    
+    class Media:
+        js = ('js/country_state_cascade.js',)
 
+# admin.py 修改 WarehouseAdmin 部分
 @admin.register(Warehouse)
 class WarehouseAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'city', 'status', 'created_at')
-    list_filter = ('status', 'country')
+    list_display = ('name', 'code', 'city', 'time_zone', 'status', 'created_at')
+    list_filter = ('status', 'country', 'time_zone')
     search_fields = ('name', 'code')
+    
+    class Media:
+        js = ('js/country_state_cascade.js',)
+
+    # [可选优化] 如果你希望时区也支持搜索，可以在这里针对该字段进行特殊配置
+    # 注意：Django 原生 autocomplete 只支持 ForeignKey，
+    # 对于带有 choices 的 CharField，它会自动变成一个支持输入搜索的普通 Select
 
 # -----------------------------------------------------------------------------------------
 # 2. LOCATION ADMIN (还原 Extensiv 库位页签布局)

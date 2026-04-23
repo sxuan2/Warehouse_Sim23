@@ -6,11 +6,11 @@
         <div>
           <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Fulfillment Flow Guide</div>
           <div class="text-[10px] text-slate-500 mt-1">
-            Next action: Select a PENDING order to review, or complete a PROCESSING order by shipping.
+            Next action: Select a PENDING order to fulfill, then ship a COMPLETE order.
           </div>
         </div>
         <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-          Pipeline: PENDING => PROCESSING => SHIPPED
+          Pipeline: PENDING => COMPLETE => SHIPPED
         </div>
       </div>
 
@@ -22,8 +22,8 @@
         </div>
         <div class="border border-indigo-500/20 bg-indigo-500/5 p-3">
           <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">2. Fulfillment</div>
-          <div class="text-lg font-bold text-wms-text mt-1">{{ processingOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">PROCESSING orders</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ completeOrdersCount }}</div>
+          <div class="text-[10px] text-slate-500">COMPLETE orders</div>
         </div>
         <div class="border border-emerald-500/20 bg-emerald-500/5 p-3">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">3. Closed</div>
@@ -35,11 +35,11 @@
 
     <div v-if="orderStore.error" class="bg-rose-500/10 border border-rose-500/20 p-4 shrink-0 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <AlertTriangleIcon class="text-rose-500" :size="16" />
+        <AlertCircle class="text-rose-500" :size="16" />
         <span class="text-rose-500 text-[10px] font-bold uppercase tracking-widest">SYSTEM HALT: {{ orderStore.error }}</span>
       </div>
       <button @click="orderStore.error = null" class="text-rose-500 hover:text-wms-text transition-colors">
-        <XIcon :size="14" />
+        <X :size="14" />
       </button>
     </div>
 
@@ -47,14 +47,14 @@
       <div class="bg-wms-header border-b border-wms-border p-4 flex justify-between items-center shrink-0 shadow-lg">
         <div class="flex items-center gap-6">
           <button @click="selectedOrder = null" class="text-slate-400 hover:text-indigo-400 transition-colors bg-white/5 p-1 rounded">
-            <ChevronLeftIcon :size="18" />
+            <ChevronLeft :size="18" />
           </button>
           <div>
             <div class="text-[10px] text-slate-500 uppercase font-bold tracking-widest flex items-center gap-2">
               Order Review <span class="text-slate-700">|</span> 
-              <span class="text-indigo-400">Ref: {{ selectedOrder.order_number }}</span>
+              <span class="text-indigo-400">Txn: {{ selectedOrder.transaction_id || selectedOrder.order_number }}</span>
               <span class="text-slate-700">|</span> 
-              <span>Client: {{ selectedOrder.customer_name || 'UNKNOWN' }}</span>
+              <span>Client: {{ selectedOrder.client_name || 'UNKNOWN' }}</span>
             </div>
           </div>
         </div>
@@ -62,26 +62,36 @@
         <div class="flex items-center gap-2">
           <button 
             v-if="selectedOrder.status === 'PENDING'"
-            @click="markAsProcessing"
+            @click="handleFulfillOrder"
+            :disabled="orderStore.isLoading"
             class="bg-indigo-600 hover:bg-indigo-500 text-wms-text text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
           >
-            <TruckIcon :size="14" /> Start Fulfillment
+            <Truck :size="14" /> Complete Fulfillment
           </button>
           
           <button 
-            v-if="selectedOrder.status === 'PROCESSING'"
-            @click="handleShipOrder"
+            v-if="selectedOrder.status === 'COMPLETE'"
+            @click="handleMarkShipped"
             :disabled="orderStore.isLoading"
             class="bg-[#0e7490] hover:bg-[#0891b2] disabled:bg-white/10 disabled:text-slate-500 text-wms-text text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all"
           >
-            <TruckIcon v-if="!orderStore.isLoading" :size="14" />
-            <RefreshCcwIcon v-else class="animate-spin" :size="14" />
-            {{ orderStore.isLoading ? 'Verifying Stock...' : 'Ship and Close Order' }}
+            <Truck v-if="!orderStore.isLoading" :size="14" />
+            <RefreshCcw v-else class="animate-spin" :size="14" />
+            {{ orderStore.isLoading ? 'Updating...' : 'Mark as Shipped' }}
           </button>
           
-          <span v-if="selectedOrder.status === 'SHIPPED'" class="border border-emerald-500/20 text-emerald-500 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest">
+          <span v-if="selectedOrder.status === 'COMPLETE' || selectedOrder.status === 'SHIPPED'" class="border border-emerald-500/20 text-emerald-500 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest">
             Order Complete
           </span>
+
+          <button
+            v-if="selectedOrder.status === 'COMPLETE' || selectedOrder.status === 'SHIPPED'"
+            @click="handleRevertToPending"
+            :disabled="orderStore.isLoading"
+            class="bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-30 text-amber-300 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest border border-amber-500/30 transition-all"
+          >
+            Revert to Pending
+          </button>
         </div>
       </div>
 
@@ -122,11 +132,15 @@
           </table>
         </div>
 
-        <div v-if="activeSubTab === 'details'" class="bg-white border border-slate-200 rounded-sm p-6 shadow-sm animate-in fade-in duration-200 text-slate-800">
+        <div v-if="activeSubTab === 'details'" class="bg-white border border-slate-200 rounded-sm p-6 shadow-sm animate-in fade-in duration-200 text-slate-800 space-y-6">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div class="flex flex-col gap-1">
               <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Recipient</span>
               <span class="text-xs font-medium">{{ selectedOrder.recipient_name || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Company</span>
+              <span class="text-xs font-medium">{{ selectedOrder.company_name || 'N/A' }}</span>
             </div>
             <div class="flex flex-col gap-1">
               <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Destination City</span>
@@ -136,6 +150,67 @@
               <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Earliest Ship Date</span>
               <span class="text-xs font-medium">{{ selectedOrder.earliest_ship_date ? new Date(selectedOrder.earliest_ship_date).toLocaleDateString() : 'Immediate' }}</span>
             </div>
+            <div class="flex flex-col gap-1 md:col-span-2">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Address</span>
+              <span class="text-xs font-medium">
+                {{ [selectedOrder.address1, selectedOrder.address2, selectedOrder.city, selectedOrder.state, selectedOrder.postal_code, selectedOrder.country].filter(Boolean).join(', ') || 'N/A' }}
+              </span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Purchase Order</span>
+              <span class="text-xs font-medium">{{ selectedOrder.purchase_order || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Created By</span>
+              <span class="text-xs font-medium">{{ selectedOrder.created_by || 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200 pt-4 grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Carrier</span>
+              <span class="text-xs font-medium">{{ selectedOrder.carrier || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Service</span>
+              <span class="text-xs font-medium">{{ selectedOrder.service || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tracking #</span>
+              <span class="text-xs font-medium">{{ selectedOrder.tracking_number || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Pickup Date</span>
+              <span class="text-xs font-medium">{{ selectedOrder.pickup_date ? new Date(selectedOrder.pickup_date).toLocaleString() : 'N/A' }}</span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">BOL</span>
+              <span class="text-xs font-medium">{{ selectedOrder.bol_number || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Trailer</span>
+              <span class="text-xs font-medium">{{ selectedOrder.trailer_number || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Door</span>
+              <span class="text-xs font-medium">{{ selectedOrder.door || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Insurance</span>
+              <span class="text-xs font-medium">{{ selectedOrder.insurance ? `Yes (${selectedOrder.insurance_amount || 0})` : 'No' }}</span>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200 pt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Warehouse Instructions</span>
+              <span class="text-xs font-medium whitespace-pre-wrap">{{ selectedOrder.warehouse_instructions || 'N/A' }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Carrier Instructions</span>
+              <span class="text-xs font-medium whitespace-pre-wrap">{{ selectedOrder.carrier_instructions || 'N/A' }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -144,14 +219,14 @@
     <div v-else class="bg-wms-bg border border-wms-border flex flex-col flex-1 min-h-0">
       <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
         <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
-          <ArrowRightLeftIcon class="text-indigo-500" :size="16" />
+          <ArrowRightLeft class="text-indigo-500" :size="16" />
           Outbound Manifests
         </div>
         <button 
           @click="orderStore.fetchOrders()"
           class="text-slate-500 hover:text-wms-text transition-colors"
         >
-          <RefreshCcwIcon :size="14" :class="{'animate-spin': orderStore.isLoading}" />
+          <RefreshCcw :size="14" :class="{'animate-spin': orderStore.isLoading}" />
         </button>
       </div>
 
@@ -159,8 +234,9 @@
         <table class="w-full text-left">
           <thead class="bg-wms-header text-[10px] text-slate-500 uppercase tracking-widest font-bold border-b border-wms-border sticky top-0">
             <tr>
-              <th class="p-4">Order ID</th>
-              <th class="p-4">Client / Customer</th>
+              <th class="p-4">Transaction ID</th>
+              <th class="p-4">Customer</th>
+              <th class="p-4">Warehouse</th>
               <th class="p-4">Total Lines</th>
               <th class="p-4">Status</th>
               <th class="p-4 text-right">Actions</th>
@@ -168,7 +244,7 @@
           </thead>
           <tbody class="text-[12px] text-slate-400">
             <tr v-if="orderStore.orders.length === 0">
-              <td colspan="5" class="p-20 text-center uppercase tracking-tighter opacity-30 italic">No Active Order Manifests</td>
+              <td colspan="6" class="p-20 text-center uppercase tracking-tighter opacity-30 italic">No Active Order Manifests</td>
             </tr>
             <tr 
               v-for="order in orderStore.orders" 
@@ -176,21 +252,23 @@
               @click="selectedOrder = order"
               class="border-b border-wms-border hover:bg-white/[0.02] cursor-pointer group transition-colors"
             >
-              <td class="p-4 font-mono font-bold text-wms-text group-hover:text-indigo-400">{{ order.order_number }}</td>
-              <td class="p-4 opacity-80">{{ order.customer_name || 'Default Client' }}</td>
+              <td class="p-4 font-mono font-bold text-wms-text group-hover:text-indigo-400">{{ order.transaction_id || order.order_number }}</td>
+              <td class="p-4 opacity-80">{{ order.client_name || 'Default Client' }}</td>
+              <td class="p-4 opacity-80">{{ order.warehouse_name || 'N/A' }}</td>
               <td class="p-4 font-mono">{{ order.items.length }}</td>
               <td class="p-4">
                 <span :class="[
                   'px-2 py-0.5 border text-[10px] font-bold',
                   order.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
-                  order.status === 'PROCESSING' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  order.status === 'COMPLETE' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                  order.status === 'SHIPPED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                  'bg-slate-500/10 text-slate-400 border-slate-500/20'
                 ]">
                   {{ order.status }}
                </span>
               </td>
               <td class="p-4 text-right">
-                <ChevronRightIcon :size="14" class="inline opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                <ChevronRight :size="14" class="inline opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </td>
             </tr>
           </tbody>
@@ -204,54 +282,63 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useOrderStore, type OutboundOrder } from '../store/order';
+// [核心修复] 移除所有容易断层的 Icon 后缀，使用基础底包命名，保证兼容性
 import { 
-  ArrowRightLeftIcon, 
-  TruckIcon, 
-  ChevronLeftIcon, 
-  ChevronRightIcon, 
-  RefreshCcwIcon,
-  AlertTriangleIcon,
-  XIcon
+  ArrowRightLeft, 
+  Truck, 
+  ChevronLeft, 
+  ChevronRight, 
+  RefreshCcw,
+  AlertCircle,
+  X
 } from 'lucide-vue-next';
 
-// Store Integration
 const orderStore = useOrderStore();
-
-// Local State
 const selectedOrder = ref<OutboundOrder | null>(null);
 const activeSubTab = ref('items');
 
-// Computed Properties for Flow Guide
-const pendingOrdersCount = computed(() => orderStore.orders.filter(o => o.status === 'PENDING').length);
-const processingOrdersCount = computed(() => orderStore.orders.filter(o => o.status === 'PROCESSING').length);
-const shippedOrdersCount = computed(() => orderStore.orders.filter(o => o.status === 'SHIPPED').length);
+// [防御性修复] 就算 store 彻底断联返回 undefined，这里也会 fallback 到 []，绝不崩溃
+const pendingOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'PENDING').length);
+const completeOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'COMPLETE').length);
+const shippedOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'SHIPPED').length);
 
-// Lifecycle
 onMounted(() => {
   orderStore.fetchOrders();
 });
 
-// Actions
-const markAsProcessing = () => {
-  if (selectedOrder.value) {
-    // In a full implementation, this would call a PATCH /api/orders/:id endpoint
-    // For this demonstration, we simulate local state change prior to actual shipping
-    selectedOrder.value.status = 'PROCESSING';
+const handleFulfillOrder = async () => {
+  const orderKey = selectedOrder.value?.transaction_id || selectedOrder.value?.id;
+  if (!orderKey) return;
+  
+  try {
+    const updatedOrder = await orderStore.fulfillOrder(orderKey);
+    selectedOrder.value = updatedOrder;
+  } catch (error) {
+    console.error("Fulfillment failed due to inventory mismatch or lock error.", error);
   }
 };
 
-const handleShipOrder = async () => {
-  if (!selectedOrder.value) return;
-  
+const handleMarkShipped = async () => {
+  const orderKey = selectedOrder.value?.transaction_id || selectedOrder.value?.id;
+  if (!orderKey) return;
+
   try {
-    // This triggers the Django backend to perform the atomic inventory deduction
-    const updatedOrder = await orderStore.fulfillOrder(selectedOrder.value.id);
-    
-    // Update local selected view with the server response
+    const updatedOrder = await orderStore.shipOrder(orderKey);
     selectedOrder.value = updatedOrder;
   } catch (error) {
-    // The Pinia store handles the error catching, the UI will display the banner
-    console.error("Fulfillment failed due to inventory mismatch or lock error.", error);
+    console.error('Mark as shipped failed.', error);
+  }
+};
+
+const handleRevertToPending = async () => {
+  const orderKey = selectedOrder.value?.transaction_id || selectedOrder.value?.id;
+  if (!orderKey) return;
+
+  try {
+    const updatedOrder = await orderStore.revertOrderToPending(orderKey);
+    selectedOrder.value = updatedOrder;
+  } catch (error) {
+    console.error('Revert to pending failed.', error);
   }
 };
 </script>

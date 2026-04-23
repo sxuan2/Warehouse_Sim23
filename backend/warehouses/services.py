@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import F, Sum
-from .models import Inventory, InventoryTransaction, OutboundOrder, Sku, Location
+from .models import Inventory, InventoryTransaction, OutboundOrder, Sku, Location, Receipt
 
 class InventoryService:
     @staticmethod
@@ -37,14 +37,18 @@ class InventoryService:
 class OrderService:
     @staticmethod
     @transaction.atomic
-    def fulfill_order(order_id):
+    def fulfill_order(order_key):
         """
         Outbound Logic: Complex multi-bin deduction algorithm with atomic locking.
         """
-        order = OutboundOrder.objects.select_for_update().get(id=order_id)
+        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        if not order:
+            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+        if not order:
+            raise ValueError("Order not found.")
         
-        if order.status == 'SHIPPED':
-            raise ValueError("Order has already been shipped.")
+        if order.status in ['SHIPPED', 'COMPLETE']:
+            raise ValueError("Order has already been completed.")
 
         order_items = order.items.all()
         
@@ -83,13 +87,154 @@ class OrderService:
                     client_id=order.client_id,
                     change_qty=-deduct_now,
                     from_bin_id=record.bin_id,
-                    reference_id=order.order_number,
+                    reference_id=order.transaction_id or order.order_number,
                     reason='ORDER_FULFILLMENT'
                 )
 
                 remaining_to_deduct -= deduct_now
 
         # Finalize order status
-        order.status = 'SHIPPED'
+        order.status = 'COMPLETE'
         order.save()
         return order
+
+    @staticmethod
+    @transaction.atomic
+    def revert_to_pending(order_key):
+        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        if not order:
+            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+        if not order:
+            raise ValueError("Order not found.")
+
+        if order.status not in ['COMPLETE', 'SHIPPED']:
+            raise ValueError("Only completed orders can be reverted to pending.")
+
+        order.status = 'PENDING'
+        order.save(update_fields=['status', 'updated_at'])
+        return order
+
+    @staticmethod
+    @transaction.atomic
+    def ship_order(order_key):
+        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        if not order:
+            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+        if not order:
+            raise ValueError("Order not found.")
+
+        if order.status != 'COMPLETE':
+            raise ValueError("Only COMPLETE orders can be marked as SHIPPED.")
+
+        order.status = 'SHIPPED'
+        order.save(update_fields=['status', 'updated_at'])
+        return order
+
+
+class ReceiptService:
+    @staticmethod
+    def _resolve_receipt(receipt_key):
+        receipt = Receipt.objects.select_for_update().filter(transaction_id=receipt_key).first()
+        if not receipt:
+            receipt = Receipt.objects.select_for_update().filter(id=receipt_key).first()
+        if not receipt:
+            raise ValueError("Receipt not found.")
+        return receipt
+
+    @staticmethod
+    def _get_target_bin(receipt, item):
+        target_bin = item.putaway_location
+        if target_bin:
+            return target_bin
+
+        wh_code = receipt.warehouse.code if receipt.warehouse and receipt.warehouse.code else 'GEN'
+        target_bin, _ = Location.objects.get_or_create(
+            warehouse=receipt.warehouse,
+            name=f"RECV-DOCK-{wh_code}",
+            defaults={'type': Location.TypeChoices.STAGING}
+        )
+        return target_bin
+
+    @staticmethod
+    def _post_inventory(receipt):
+        for item in receipt.items.select_related('sku', 'putaway_location').all():
+            target_bin = ReceiptService._get_target_bin(receipt, item)
+
+            inv, _ = Inventory.objects.select_for_update().get_or_create(
+                sku=item.sku,
+                bin=target_bin,
+                client=receipt.client,
+                lot_number=item.lot_number,
+                defaults={'qty': 0}
+            )
+            inv.qty += item.qty
+            if item.expiration_date:
+                inv.expiry_date = item.expiration_date
+            inv.save()
+
+            InventoryTransaction.objects.create(
+                type=InventoryTransaction.TypeChoices.INBOUND,
+                sku=item.sku,
+                client=receipt.client,
+                change_qty=item.qty,
+                to_bin=target_bin,
+                reference_id=f"RECV-{receipt.transaction_id}",
+                reason="Receipt Marked RECEIVED",
+                lot_number=item.lot_number
+            )
+
+    @staticmethod
+    def _unpost_inventory(receipt):
+        for item in receipt.items.select_related('sku', 'putaway_location').all():
+            target_bin = ReceiptService._get_target_bin(receipt, item)
+
+            inv = Inventory.objects.select_for_update().filter(
+                sku=item.sku,
+                bin=target_bin,
+                client=receipt.client,
+                lot_number=item.lot_number,
+            ).first()
+            if not inv or inv.qty < item.qty:
+                raise ValueError(f"Cannot revert receipt {receipt.transaction_id}: insufficient on-hand for SKU {item.sku.part_number}.")
+
+            inv.qty -= item.qty
+            inv.save()
+
+            InventoryTransaction.objects.create(
+                type=InventoryTransaction.TypeChoices.ADJUSTMENT,
+                sku=item.sku,
+                client=receipt.client,
+                change_qty=-item.qty,
+                from_bin=target_bin,
+                reference_id=f"RECV-{receipt.transaction_id}",
+                reason="Receipt reverted from RECEIVED",
+                lot_number=item.lot_number
+            )
+
+    @staticmethod
+    @transaction.atomic
+    def update_status(receipt_key, target_status):
+        receipt = ReceiptService._resolve_receipt(receipt_key)
+
+        current = receipt.status
+        target = (target_status or '').upper().strip()
+        if current == target:
+            return receipt
+
+        allowed = {
+            Receipt.StatusChoices.OPEN: {Receipt.StatusChoices.COMPLETE},
+            Receipt.StatusChoices.COMPLETE: {Receipt.StatusChoices.OPEN, Receipt.StatusChoices.RECEIVED},
+            Receipt.StatusChoices.RECEIVED: {Receipt.StatusChoices.COMPLETE},
+        }
+
+        if target not in allowed.get(current, set()):
+            raise ValueError(f"Invalid transition: {current} -> {target}")
+
+        if current == Receipt.StatusChoices.COMPLETE and target == Receipt.StatusChoices.RECEIVED:
+            ReceiptService._post_inventory(receipt)
+        elif current == Receipt.StatusChoices.RECEIVED and target == Receipt.StatusChoices.COMPLETE:
+            ReceiptService._unpost_inventory(receipt)
+
+        receipt.status = target
+        receipt.save(update_fields=['status'])
+        return receipt

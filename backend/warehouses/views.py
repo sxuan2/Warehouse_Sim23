@@ -1,18 +1,48 @@
+from django.http import JsonResponse
+from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Client, Warehouse, Sku, Location, OutboundOrder, Inventory, InventoryTransaction, Receipt
+from .models import Client, Country, CountryTimezone, Region, Warehouse, Sku, Location, OutboundOrder, Inventory, InventoryTransaction, Receipt
 from .serializers import (
     ClientSerializer, WarehouseSerializer, SkuSerializer, LocationSerializer,
     OutboundOrderSerializer, InventorySerializer, InventoryTransactionSerializer, ReceiptSerializer
 )
-from .services import InventoryService, OrderService
+from .services import InventoryService, OrderService, ReceiptService
 
 class ClientListView(APIView):
     def get(self, request):
         clients = Client.objects.all().order_by('name')
         serializer = ClientSerializer(clients, many=True)
         return Response(serializer.data)
+
+class UserListView(APIView):
+    def get(self, request):
+        users = User.objects.all().order_by('username')
+        data = [
+            {
+                'id': u.id,
+                'username': u.username,
+                'display_name': (u.get_full_name() or u.username)
+            }
+            for u in users
+        ]
+        return Response(data)
+
+class CountryListView(APIView):
+    def get(self, request):
+        countries = Country.objects.all().order_by('name')
+        data = [{'code': c.code, 'name': c.name} for c in countries]
+        return Response(data)
+
+class RegionListView(APIView):
+    def get(self, request):
+        country_code = request.query_params.get('country')
+        regions = Region.objects.all().order_by('name')
+        if country_code:
+            regions = regions.filter(country_id=country_code)
+        data = [{'code': r.code, 'name': r.name, 'country': r.country_id} for r in regions]
+        return Response(data)
 
 class WarehouseListView(APIView):
     def get(self, request):
@@ -63,6 +93,26 @@ class OrderFulfillmentView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
+class OrderRevertPendingView(APIView):
+    def post(self, request, pk):
+        try:
+            order = OrderService.revert_to_pending(pk)
+            serializer = OutboundOrderSerializer(order)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OrderShipView(APIView):
+    def post(self, request, pk):
+        try:
+            order = OrderService.ship_order(pk)
+            serializer = OutboundOrderSerializer(order)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class InventoryListView(APIView):
     def get(self, request):
         inventory = Inventory.objects.all()
@@ -104,3 +154,30 @@ class ReceiptListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReceiptStatusUpdateView(APIView):
+    def post(self, request, pk):
+        try:
+            target_status = request.data.get('status')
+            receipt = ReceiptService.update_status(pk, target_status)
+            serializer = ReceiptSerializer(receipt)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+def get_region_choices(request):
+    country_id = request.GET.get('country')
+    if not country_id:
+        return JsonResponse({'regions': [], 'timezones': []}, safe=False)
+    
+    # 查州
+    regions = Region.objects.filter(country_id=country_id).values('code', 'name')
+    # 查时区
+    timezones = CountryTimezone.objects.filter(country_id=country_id).values('timezone_id', 'display_name')
+    
+    data = {
+        'regions': [{'v': r['code'], 'n': r['name']} for r in regions],
+        'timezones': [{'v': t['timezone_id'], 'n': t['display_name']} for t in timezones]
+    }
+    return JsonResponse(data, safe=False)

@@ -1,18 +1,6 @@
 import { defineStore } from 'pinia';
 import apiClient from '../api/client';
 
-export interface Sku {
-    id: string;
-    part_number: string;
-    description: string | null;
-}
-
-export interface Location {
-    id: string;
-    name: string;
-    warehouse_name: string;
-}
-
 export interface InventoryItem {
     id: string;
     sku: string;
@@ -25,7 +13,7 @@ export interface InventoryItem {
         name: string;
     };
     client: string;
-    client_name: string; // [NEW]
+    client_name: string;
     qty: number;
     lot_number: string | null;
 }
@@ -50,9 +38,17 @@ export const useInventoryStore = defineStore('inventory', {
             this.error = null;
             try {
                 const response = await apiClient.get('/warehouses/inventory/');
-                this.items = response.data;
+                // 【核心修复】兼容 Django 分页返回的 { results: [] } 格式
+                if (Array.isArray(response.data)) {
+                    this.items = response.data;
+                } else if (response.data && Array.isArray(response.data.results)) {
+                    this.items = response.data.results;
+                } else {
+                    this.items = [];
+                }
             } catch (err: any) {
                 this.error = err.response?.data?.error || err.message;
+                this.items = [];
             } finally {
                 this.isLoading = false;
             }
@@ -63,11 +59,11 @@ export const useInventoryStore = defineStore('inventory', {
             this.error = null;
             try {
                 const response = await apiClient.post('/warehouses/inventory/receive/', payload);
-                await this.fetchInventory(); // Automatically refresh the inventory list
+                await this.fetchInventory();
                 return response.data;
             } catch (err: any) {
                 this.error = err.response?.data?.error || err.message;
-                throw err; // Rethrow to allow UI components to show alert dialogs
+                throw err;
             } finally {
                 this.isLoading = false;
             }

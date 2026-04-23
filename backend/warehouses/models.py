@@ -1,8 +1,45 @@
 import uuid
-from django.db import models, transaction
+import zoneinfo
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 
+TIMEZONE_CHOICES = sorted([(tz, tz) for tz in zoneinfo.available_timezones()])
+
+class Country(models.Model):
+    code = models.CharField(max_length=10, primary_key=True) # 如 'US', 'CA', 'MX'
+    name = models.CharField(max_length=100) # 如 'United States', 'Mexico'
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Country"
+        verbose_name_plural = "Countries"
+
+class Region(models.Model):
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='regions')
+    code = models.CharField(max_length=10) # 如 'NY', 'CDMX'
+    name = models.CharField(max_length=100) # 如 'New York', 'Ciudad de México'
+
+    class Meta:
+        unique_together = ('country', 'code')
+        verbose_name = "State/Province"
+        verbose_name_plural = "States/Provinces"
+
+    def __str__(self):
+        return f"{self.name} ({self.country.code})"
+
+class CountryTimezone(models.Model):
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='timezones')
+    timezone_id = models.CharField(max_length=100) # America/New_York
+    display_name = models.CharField(max_length=100) # Eastern Time
+    class Meta:
+        unique_together = ('country', 'timezone_id')
+        verbose_name = "Country Timezone"
+        verbose_name_plural = "Country Timezones"
+    def __str__(self): return f"{self.display_name} ({self.country.code})"
+    
 class Client(models.Model):
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', _('Active')
@@ -16,10 +53,14 @@ class Client(models.Model):
     fax = models.CharField(max_length=50, null=True, blank=True, verbose_name="Fax Number")
     website = models.URLField(max_length=255, null=True, blank=True, verbose_name="Website")
     email = models.EmailField(null=True, blank=True, verbose_name="Email")
-    country = models.CharField(max_length=100, null=True, blank=True, verbose_name="Country")
+    
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Country")
+    
     address1 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 1")
     address2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 2")
+    
     state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State/Province")
+    
     city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City/Township")
     postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Zip/Postal")
     contact_name = models.CharField(max_length=100, null=True, blank=True, verbose_name="Primary Contact Name")
@@ -37,6 +78,13 @@ class Client(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_status_display()})"
 
+    def clean(self):
+        super().clean()
+        if self.state and self.country:
+            exists = Region.objects.filter(country=self.country, code=self.state).exists()
+            if not exists:
+                raise ValidationError({'state': _(f'Invalid state code "{self.state}" for selected country.')})
+
 class Warehouse(models.Model):
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', _('Active')
@@ -48,11 +96,26 @@ class Warehouse(models.Model):
     zone = models.CharField(max_length=100, null=True, blank=True, verbose_name="Zone")
     address1 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 1")
     address2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="Address 2")
-    country = models.CharField(max_length=100, null=True, blank=True, verbose_name="Country")
-    state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State")
+    
+    # 动态国家（外键）
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Country")
+    
+    # 州/省（通过 JS 异步联动）
+    state = models.CharField(max_length=100, null=True, blank=True, verbose_name="State/Province")
+    
     city = models.CharField(max_length=100, null=True, blank=True, verbose_name="City")
     postal_code = models.CharField(max_length=50, null=True, blank=True, verbose_name="Postal Code")
-    time_zone = models.CharField(max_length=100, null=True, blank=True, verbose_name="Time Zone")
+    
+    # 【标准化修改】改为带 choices 的 CharField
+    time_zone = models.CharField(
+        max_length=100, 
+        choices=TIMEZONE_CHOICES, 
+        default='UTC', 
+        null=True, 
+        blank=True, 
+        verbose_name="Time Zone"
+    )
+    
     phone = models.CharField(max_length=50, null=True, blank=True, verbose_name="Phone")
     fax = models.CharField(max_length=50, null=True, blank=True, verbose_name="Fax")
     email = models.EmailField(null=True, blank=True, verbose_name="Email")
@@ -66,6 +129,18 @@ class Warehouse(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def clean(self):
+        super().clean()
+        # 校验州/省的合法性
+        if self.state and self.country:
+            exists = Region.objects.filter(country=self.country, code=self.state).exists()
+            if not exists:
+                raise ValidationError({'state': _(f'Invalid state code "{self.state}" for selected country.')})
+        
+        # [新增] 校验时区的合法性
+        if self.time_zone and self.time_zone not in zoneinfo.available_timezones():
+            raise ValidationError({'time_zone': _('Invalid IANA Time Zone.')})
 
 class Location(models.Model):
     class TypeChoices(models.TextChoices):
@@ -261,6 +336,7 @@ class Receipt(models.Model):
     class StatusChoices(models.TextChoices):
         OPEN = 'OPEN', _('Open')
         COMPLETE = 'COMPLETE', _('Complete')
+        RECEIVED = 'RECEIVED', _('Received')
         CLOSED = 'CLOSED', _('Closed')
         CANCELLED = 'CANCELLED', _('Canceled')
 
