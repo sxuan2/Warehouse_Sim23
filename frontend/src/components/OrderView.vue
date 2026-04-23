@@ -1,34 +1,28 @@
 <template>
   <div class="flex flex-col gap-6 h-full">
     
-    <div class="bg-wms-bg border border-wms-border p-4 shrink-0">
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Fulfillment Flow Guide</div>
-          <div class="text-[10px] text-slate-500 mt-1">
-            Next action: Select a PENDING order to fulfill, then ship a COMPLETE order.
-          </div>
-        </div>
-        <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-          Pipeline: PENDING => COMPLETE => SHIPPED
+    <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
+      <div>
+        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Outbound Flow Overview</div>
+        <div class="text-[10px] text-slate-500 mt-1">
+          Lifecycle: PENDING => COMPLETE => SHIPPED. Fulfillment starts at PENDING.
         </div>
       </div>
-
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="border border-amber-500/20 bg-amber-500/5 p-3">
+      <div class="flex gap-4">
+        <div class="border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-amber-400">1. Queue</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ pendingOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">PENDING orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">PENDING orders</div>
         </div>
-        <div class="border border-indigo-500/20 bg-indigo-500/5 p-3">
+        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">2. Fulfillment</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ completeOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">COMPLETE orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">COMPLETE orders</div>
         </div>
-        <div class="border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">3. Closed</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ shippedOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">SHIPPED orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">SHIPPED orders</div>
         </div>
       </div>
     </div>

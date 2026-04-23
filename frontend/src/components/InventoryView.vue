@@ -1,6 +1,27 @@
 <template>
-  <div class="grid grid-cols-4 gap-6 animate-in fade-in duration-500">
-    <div class="col-span-3 bg-wms-bg border border-wms-border flex flex-col shadow-2xl relative overflow-hidden">
+  <div class="flex flex-col gap-6 h-full animate-in fade-in duration-500">
+    <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
+      <div>
+        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Inventory Flow Overview</div>
+        <div class="text-[10px] text-slate-500 mt-1">
+          Lifecycle: RECEIVE => STORE => FULFILL. Snapshot shows current on-hand inventory.
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 min-w-[120px]">
+          <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">Total SKUs</div>
+          <div class="text-lg font-bold text-wms-text mt-1 font-mono">{{ inventoryStore.items.length }}</div>
+          <div class="text-[10px] text-slate-500 mt-1">Tracked sku lines</div>
+        </div>
+        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 min-w-[120px]">
+          <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">Active Clients</div>
+          <div class="text-lg font-bold text-wms-text mt-1 font-mono">{{ clients.length }}</div>
+          <div class="text-[10px] text-slate-500 mt-1">Owners in inventory</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-wms-bg border border-wms-border flex flex-col shadow-2xl relative overflow-hidden flex-1 min-h-0">
       
       <div class="p-4 border-b border-wms-border flex justify-between items-center bg-wms-header">
         <div class="flex items-center gap-6">
@@ -78,32 +99,12 @@
       </div>
     </div>
 
-    <div class="bg-wms-bg border border-wms-border p-6 flex flex-col shadow-2xl relative">
-      <div class="flex justify-between items-center mb-6">
-        <h3 class="font-bold text-wms-text text-[10px] uppercase tracking-[0.2em]">Inventory Metrics</h3>
-        </div>
-      
-      <div v-if="inventoryStore.error" class="bg-rose-500/10 border border-rose-500/20 p-4 mb-6">
-        <div class="flex items-center gap-2 mb-1">
-          <AlertTriangleIcon class="text-rose-500" :size="12" />
-          <span class="text-rose-500 text-[9px] font-bold uppercase tracking-widest">Protocol_Error</span>
-        </div>
-        <p class="text-[10px] text-rose-400 font-mono break-all">{{ inventoryStore.error }}</p>
+    <div v-if="inventoryStore.error" class="bg-rose-500/10 border border-rose-500/20 p-4 shrink-0 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <AlertTriangleIcon class="text-rose-500" :size="12" />
+        <span class="text-rose-500 text-[10px] font-bold uppercase tracking-widest">Protocol_Error: {{ inventoryStore.error }}</span>
       </div>
-
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 gap-4">
-          <div class="p-4 bg-white/[0.02] border border-wms-border">
-            <div class="text-[8px] text-slate-500 uppercase mb-1">Total_SKUs</div>
-            <div class="text-lg font-bold text-wms-text font-mono">{{ inventoryStore.items.length }}</div>
-          </div>
-          <div class="p-4 bg-white/[0.02] border border-wms-border">
-            <div class="text-[8px] text-slate-500 uppercase mb-1">Active_Clients</div>
-            <div class="text-lg font-bold text-wms-text font-mono">{{ clients.length }}</div>
-          </div>
-        </div>
-      </div>
-      </div>
+    </div>
 
     <div v-if="isReceiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
       <div class="bg-wms-bg border border-indigo-500/30 w-full max-w-md p-8 shadow-[0_0_50px_rgba(99,102,241,0.2)] relative">
