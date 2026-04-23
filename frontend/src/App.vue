@@ -1,8 +1,21 @@
 <template>
   <div class="flex w-full h-screen bg-wms-surface text-wms-muted font-sans selection:bg-indigo-500/30 transition-colors duration-300">
     <aside class="w-64 bg-wms-bg border-r border-wms-border flex flex-col z-20 shadow-2xl">
-      <div class="p-6 flex items-center gap-3 border-b border-wms-border shrink-0">
-        <span class="text-sm font-bold tracking-widest text-wms-text uppercase">3PL Storage Simulator</span>
+      <div class="p-6 border-b border-wms-border shrink-0 space-y-3">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-bold tracking-widest text-wms-text uppercase">3PL Storage Simulator</span>
+        </div>
+        <div v-if="branding.companyName || branding.logoUrl" class="rounded border border-wms-border bg-wms-surface p-3">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 overflow-hidden rounded border border-wms-border bg-wms-header">
+              <img v-if="branding.logoUrl" :src="branding.logoUrl" alt="Company Logo" class="h-full w-full object-cover" />
+            </div>
+            <div class="min-w-0">
+              <div class="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Company</div>
+              <div class="text-xs font-semibold text-wms-text truncate">{{ branding.companyName || 'Not set' }}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <nav class="flex-1 overflow-y-auto py-4 custom-scrollbar">
@@ -69,6 +82,15 @@
           </li>
 
           <div class="my-4 border-t border-wms-border mx-2"></div>
+
+          <li>
+            <button @click="setActiveTab('settings', 'system')" :class="['w-full flex items-center gap-3 px-3 py-2.5 rounded transition-all', activeTab === 'settings' ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-400 hover:text-wms-text hover:bg-white/[0.02]']">
+              <SettingsIcon :size="16" />
+              <span class="text-xs font-semibold tracking-wide">Settings</span>
+            </button>
+          </li>
+
+          <div class="my-4 border-t border-wms-border mx-2"></div>
           
           <li>
             <a href="http://127.0.0.1:8000/admin/warehouses/client/" target="_blank" class="w-full flex items-center gap-3 px-3 py-2.5 rounded text-slate-500 hover:text-wms-text hover:bg-white/[0.02] transition-all">
@@ -132,7 +154,7 @@
       </header>
 
       <div class="p-6 overflow-y-auto h-full relative">
-        <DashboardView v-if="activeTab === 'dashboard'" />
+        <DashboardView v-if="activeTab === 'dashboard'" :company-name="branding.companyName" :logo-url="branding.logoUrl" />
         
         <OrderView v-else-if="activeTab === 'orders'" />
         <CreateOrderView 
@@ -150,18 +172,26 @@
         
         <InventoryView v-else-if="activeTab === 'inventory'" />
         <AuditView v-else-if="activeTab === 'audit'" />
+        <SettingsView
+          v-else-if="activeTab === 'settings'"
+          :company-name="branding.companyName"
+          :logo-url="branding.logoUrl"
+          @update-company-name="updateCompanyName"
+          @update-logo="updateLogo"
+          @clear-branding="clearBranding"
+        />
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { 
   LayoutDashboardIcon, BoxIcon, FileDownIcon, LayersIcon,
   UsersIcon, PackageIcon, HomeIcon, ExternalLinkIcon,
   ChevronDownIcon, ChevronRightIcon, SearchIcon,
-  PaletteIcon
+  PaletteIcon, SettingsIcon
 } from 'lucide-vue-next';
 
 import DashboardView from './components/DashboardView.vue';
@@ -171,11 +201,41 @@ import AuditView from './components/AuditView.vue';
 import ReceiptView from './components/ReceiptView.vue';
 import CreateReceiptView from './components/CreateReceiptView.vue';
 import CreateOrderView from './components/CreateOrderView.vue';
+import SettingsView from './components/SettingsView.vue';
 
 // 响应式状态
 const themeStorageKey = 'wms-theme';
+const brandingStorageKey = 'wms-branding';
 const currentTheme = ref(localStorage.getItem(themeStorageKey) || 'theme-light');
 const isSettingsOpen = ref(false); // 主题菜单开关
+
+type Branding = {
+  companyName: string;
+  logoUrl: string;
+};
+
+const defaultBranding: Branding = {
+  companyName: '',
+  logoUrl: ''
+};
+
+const loadBranding = (): Branding => {
+  const raw = localStorage.getItem(brandingStorageKey);
+  if (!raw) {
+    return { ...defaultBranding };
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<Branding>;
+    return {
+      companyName: parsed.companyName || '',
+      logoUrl: parsed.logoUrl || ''
+    };
+  } catch {
+    return { ...defaultBranding };
+  }
+};
+
+const branding = reactive<Branding>(loadBranding());
 
 const themes = [
   { name: 'Standard Light', value: 'theme-light' },
@@ -212,6 +272,19 @@ const selectTheme = (theme: string) => {
   isSettingsOpen.value = false;
 };
 
+const updateCompanyName = (value: string) => {
+  branding.companyName = value;
+};
+
+const updateLogo = (value: string) => {
+  branding.logoUrl = value;
+};
+
+const clearBranding = () => {
+  branding.companyName = '';
+  branding.logoUrl = '';
+};
+
 watch(
   currentTheme,
   (theme) => {
@@ -219,6 +292,14 @@ watch(
     localStorage.setItem(themeStorageKey, theme);
   },
   { immediate: true }
+);
+
+watch(
+  () => ({ ...branding }),
+  (value) => {
+    localStorage.setItem(brandingStorageKey, JSON.stringify(value));
+  },
+  { deep: true }
 );
 </script>
 
