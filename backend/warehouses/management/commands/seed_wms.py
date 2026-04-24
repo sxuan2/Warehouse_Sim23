@@ -4,7 +4,7 @@ from django.utils import timezone
 from datetime import datetime
 from warehouses.models import (
     Client, Country, Warehouse, Location, Sku, Inventory,
-    InventoryTransaction, OutboundOrder, OutboundOrderItem, Receipt, ReceiptItem
+    InventoryTransaction, Order, OrderItem, Receipt, ReceiptItem
 )
 
 class Command(BaseCommand):
@@ -23,8 +23,8 @@ class Command(BaseCommand):
         
         ReceiptItem.objects.all().delete()
         Receipt.objects.all().delete()
-        OutboundOrderItem.objects.all().delete()
-        OutboundOrder.objects.all().delete()
+        OrderItem.objects.all().delete()
+        Order.objects.all().delete()
         InventoryTransaction.objects.all().delete()
         Inventory.objects.all().delete()
         Sku.objects.all().delete()
@@ -147,7 +147,7 @@ class Command(BaseCommand):
         # --- 6. Create Orders ---
         ship_date = timezone.make_aware(datetime(2026, 4, 17, 12, 0, 0))
 
-        order_mb = OutboundOrder.objects.create(
+        order_mb = Order.objects.create(
             order_number="20260417-MADBARN-01",
             client=client_mad_barn,
             warehouse=calgary_wh,
@@ -162,10 +162,10 @@ class Command(BaseCommand):
             purchase_order='PO-20260417-001',
             tracking_number=''
         )
-        OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_1, qty=10, uom='Bag', price=45.0)
-        OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_2, qty=6, uom='Case', price=18.5)
+        OrderItem.objects.create(order=order_mb, sku=sku_mb_1, qty=10, uom='Bag', price=45.0)
+        OrderItem.objects.create(order=order_mb, sku=sku_mb_2, qty=6, uom='Case', price=18.5)
 
-        order_tf = OutboundOrder.objects.create(
+        order_tf = Order.objects.create(
             order_number="20260418-TECHFLOW-99",
             client=client_techflow,
             warehouse=langley_wh,
@@ -177,7 +177,7 @@ class Command(BaseCommand):
             country=client_techflow.country.name,
             purchase_order='PO-20260418-099'
         )
-        OutboundOrderItem.objects.create(order=order_tf, sku=sku_tf_1, qty=2, uom='Box', price=1599.99)
+        OrderItem.objects.create(order=order_tf, sku=sku_tf_1, qty=2, uom='Box', price=1599.99)
 
         # --- 7. Create Receipts ---
         receipt = Receipt.objects.create(

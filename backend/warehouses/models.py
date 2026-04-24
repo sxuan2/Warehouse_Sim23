@@ -239,7 +239,7 @@ class InventoryTransaction(models.Model):
         verbose_name = "Inventory Transaction"
         verbose_name_plural = "Inventory Transactions"
 
-class OutboundOrder(models.Model):
+class Order(models.Model):
     class StatusChoices(models.TextChoices):
         PENDING = 'PENDING', _('Pending')
         PROCESSING = 'PROCESSING', _('Processing')
@@ -312,16 +312,16 @@ class OutboundOrder(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'wms_outbound_order'
-        verbose_name = "Outbound Order"
-        verbose_name_plural = "Outbound Orders"
+        db_table = 'wms_order'
+        verbose_name = "Order"
+        verbose_name_plural = "Orders"
 
     def __str__(self):
         return f"{self.order_number} ({self.client.name})"
 
-class OutboundOrderItem(models.Model):
+class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.ForeignKey(OutboundOrder, on_delete=models.CASCADE, related_name='items')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     sku = models.ForeignKey('Sku', on_delete=models.RESTRICT, related_name='order_items')
     qty = models.IntegerField(verbose_name="Quantity")
     uom = models.CharField(max_length=50, default="Each", verbose_name="Primary Units")
@@ -330,7 +330,7 @@ class OutboundOrderItem(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:
-        db_table = 'wms_outbound_order_item'
+        db_table = 'wms_order_item'
 
 class Receipt(models.Model):
     class StatusChoices(models.TextChoices):

@@ -11,7 +11,7 @@
 
     <div class="p-4 border-b border-wms-border flex justify-between items-center bg-wms-header">
       <div class="flex items-center gap-4">
-        <h2 class="text-wms-text text-xs font-bold uppercase tracking-[0.2em]">Create Outbound Order</h2>
+        <h2 class="text-wms-text text-xs font-bold uppercase tracking-[0.2em]">Create Order</h2>
         <div v-if="form.order_number" class="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-mono">REF: {{ form.order_number }}</div>
       </div>
       <div class="flex gap-3">

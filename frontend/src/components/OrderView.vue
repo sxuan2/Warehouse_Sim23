@@ -3,7 +3,7 @@
     
     <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
       <div>
-        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Outbound Flow Overview</div>
+        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Order Flow Overview</div>
         <div class="text-[10px] text-slate-500 mt-1">
           Lifecycle: PENDING => COMPLETE => SHIPPED. Fulfillment starts at PENDING.
         </div>
@@ -214,7 +214,7 @@
       <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
         <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
           <ArrowRightLeft class="text-indigo-500" :size="16" />
-          Outbound Manifests
+          Order Manifests
         </div>
         <button 
           @click="orderStore.fetchOrders()"
@@ -275,7 +275,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useOrderStore, type OutboundOrder } from '../store/order';
+import { useOrderStore, type Order } from '../store/order';
 // [核心修复] 移除所有容易断层的 Icon 后缀，使用基础底包命名，保证兼容性
 import { 
   ArrowRightLeft, 
@@ -288,7 +288,7 @@ import {
 } from 'lucide-vue-next';
 
 const orderStore = useOrderStore();
-const selectedOrder = ref<OutboundOrder | null>(null);
+const selectedOrder = ref<Order | null>(null);
 const activeSubTab = ref('items');
 
 // [防御性修复] 就算 store 彻底断联返回 undefined，这里也会 fallback 到 []，绝不崩溃

@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import F, Sum
-from .models import Inventory, InventoryTransaction, OutboundOrder, Sku, Location, Receipt
+from .models import Inventory, InventoryTransaction, Order, Sku, Location, Receipt
 
 class InventoryService:
     @staticmethod
@@ -41,9 +41,9 @@ class OrderService:
         """
         Outbound Logic: Complex multi-bin deduction algorithm with atomic locking.
         """
-        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        order = Order.objects.select_for_update().filter(transaction_id=order_key).first()
         if not order:
-            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+            order = Order.objects.select_for_update().filter(id=order_key).first()
         if not order:
             raise ValueError("Order not found.")
         
@@ -101,9 +101,9 @@ class OrderService:
     @staticmethod
     @transaction.atomic
     def revert_to_pending(order_key):
-        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        order = Order.objects.select_for_update().filter(transaction_id=order_key).first()
         if not order:
-            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+            order = Order.objects.select_for_update().filter(id=order_key).first()
         if not order:
             raise ValueError("Order not found.")
 
@@ -117,9 +117,9 @@ class OrderService:
     @staticmethod
     @transaction.atomic
     def ship_order(order_key):
-        order = OutboundOrder.objects.select_for_update().filter(transaction_id=order_key).first()
+        order = Order.objects.select_for_update().filter(transaction_id=order_key).first()
         if not order:
-            order = OutboundOrder.objects.select_for_update().filter(id=order_key).first()
+            order = Order.objects.select_for_update().filter(id=order_key).first()
         if not order:
             raise ValueError("Order not found.")
 
