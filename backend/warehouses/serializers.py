@@ -86,9 +86,7 @@ class OrderSerializer(serializers.ModelSerializer):
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
 
-        transaction_id = validated_data.get('transaction_id')
-        if not transaction_id:
-            validated_data['transaction_id'] = self._next_transaction_id()
+        validated_data['transaction_id'] = self._next_transaction_id()
         
         client = Client.objects.get(id=client_id)
         warehouse = Warehouse.objects.get(id=warehouse_id)
@@ -161,7 +159,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             if match:
                 max_numeric = max(max_numeric, int(match.group(1)))
 
-        return f"RCV{max_numeric + 1:06d}"
+        return f"{max_numeric + 1:06d}"
 
     @transaction.atomic
     def create(self, validated_data):
@@ -169,9 +167,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
 
-        transaction_id = validated_data.get('transaction_id')
-        if not transaction_id:
-            validated_data['transaction_id'] = self._next_transaction_id()
+        validated_data['transaction_id'] = self._next_transaction_id()
         
         validated_data['client'] = Client.objects.get(id=client_id)
         validated_data['warehouse'] = Warehouse.objects.get(id=warehouse_id)

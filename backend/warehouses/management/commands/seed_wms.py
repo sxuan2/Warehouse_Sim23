@@ -130,13 +130,38 @@ class Command(BaseCommand):
 
         # --- 4. Create SKUs for different clients ---
 
-        sku_mb_1 = Sku.objects.create(client=client_mad_barn, part_number='628055180036', description='Omneity - Equine Mineral and Vitamin Premix - 25 kg')
-        sku_mb_2 = Sku.objects.create(client=client_mad_barn, part_number='628055180159', description='Optimum Probiotics - 60 GRAM')
+        sku_mb_1 = Sku.objects.create(
+            client=client_mad_barn,
+            part_number='628055180036',
+            name='Omneity Equine Mineral and Vitamin Premix 25kg',
+            description='Omneity - Equine Mineral and Vitamin Premix - 25 kg'
+        )
+        sku_mb_2 = Sku.objects.create(
+            client=client_mad_barn,
+            part_number='628055180159',
+            name='Optimum Probiotics 60g',
+            description='Optimum Probiotics - 60 GRAM'
+        )
 
-        sku_tf_1 = Sku.objects.create(client=client_techflow, part_number='TF-GPU-4090', description='NVIDIA RTX 4090 Graphics Card')
-        sku_tf_2 = Sku.objects.create(client=client_techflow, part_number='TF-SSD-2TB', description='2TB NVMe Solid State Drive')
+        sku_tf_1 = Sku.objects.create(
+            client=client_techflow,
+            part_number='TF-GPU-4090',
+            name='NVIDIA RTX 4090 Graphics Card',
+            description='NVIDIA RTX 4090 Graphics Card'
+        )
+        sku_tf_2 = Sku.objects.create(
+            client=client_techflow,
+            part_number='TF-SSD-2TB',
+            name='2TB NVMe Solid State Drive',
+            description='2TB NVMe Solid State Drive'
+        )
 
-        sku_gl_1 = Sku.objects.create(client=client_global, part_number='GL-COF-001', description='Premium Arabica Coffee Beans - 1kg')
+        sku_gl_1 = Sku.objects.create(
+            client=client_global,
+            part_number='GL-COF-001',
+            name='Premium Arabica Coffee Beans 1kg',
+            description='Premium Arabica Coffee Beans - 1kg'
+        )
 
         # --- 5. Populate Inventory ---
         Inventory.objects.create(sku=sku_mb_1, bin=loc_calg_pick_1, client=client_mad_barn, qty=500, serial_number='SN-MB-001')
