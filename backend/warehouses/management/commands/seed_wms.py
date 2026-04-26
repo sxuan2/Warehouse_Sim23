@@ -4,7 +4,7 @@ from django.utils import timezone
 from datetime import datetime
 from warehouses.models import (
     Client, Country, Warehouse, Location, Sku, Inventory,
-    InventoryTransaction, OutboundOrder, OutboundOrderItem, Receipt, ReceiptItem
+    InventoryTransaction, Order, OrderItem, Receipt, ReceiptItem
 )
 
 class Command(BaseCommand):
@@ -23,8 +23,8 @@ class Command(BaseCommand):
         
         ReceiptItem.objects.all().delete()
         Receipt.objects.all().delete()
-        OutboundOrderItem.objects.all().delete()
-        OutboundOrder.objects.all().delete()
+        OrderItem.objects.all().delete()
+        Order.objects.all().delete()
         InventoryTransaction.objects.all().delete()
         Inventory.objects.all().delete()
         Sku.objects.all().delete()
@@ -130,13 +130,38 @@ class Command(BaseCommand):
 
         # --- 4. Create SKUs for different clients ---
 
-        sku_mb_1 = Sku.objects.create(client=client_mad_barn, part_number='628055180036', description='Omneity - Equine Mineral and Vitamin Premix - 25 kg')
-        sku_mb_2 = Sku.objects.create(client=client_mad_barn, part_number='628055180159', description='Optimum Probiotics - 60 GRAM')
+        sku_mb_1 = Sku.objects.create(
+            client=client_mad_barn,
+            part_number='628055180036',
+            name='Omneity Equine Mineral and Vitamin Premix 25kg',
+            description='Omneity - Equine Mineral and Vitamin Premix - 25 kg'
+        )
+        sku_mb_2 = Sku.objects.create(
+            client=client_mad_barn,
+            part_number='628055180159',
+            name='Optimum Probiotics 60g',
+            description='Optimum Probiotics - 60 GRAM'
+        )
 
-        sku_tf_1 = Sku.objects.create(client=client_techflow, part_number='TF-GPU-4090', description='NVIDIA RTX 4090 Graphics Card')
-        sku_tf_2 = Sku.objects.create(client=client_techflow, part_number='TF-SSD-2TB', description='2TB NVMe Solid State Drive')
+        sku_tf_1 = Sku.objects.create(
+            client=client_techflow,
+            part_number='TF-GPU-4090',
+            name='NVIDIA RTX 4090 Graphics Card',
+            description='NVIDIA RTX 4090 Graphics Card'
+        )
+        sku_tf_2 = Sku.objects.create(
+            client=client_techflow,
+            part_number='TF-SSD-2TB',
+            name='2TB NVMe Solid State Drive',
+            description='2TB NVMe Solid State Drive'
+        )
 
-        sku_gl_1 = Sku.objects.create(client=client_global, part_number='GL-COF-001', description='Premium Arabica Coffee Beans - 1kg')
+        sku_gl_1 = Sku.objects.create(
+            client=client_global,
+            part_number='GL-COF-001',
+            name='Premium Arabica Coffee Beans 1kg',
+            description='Premium Arabica Coffee Beans - 1kg'
+        )
 
         # --- 5. Populate Inventory ---
         Inventory.objects.create(sku=sku_mb_1, bin=loc_calg_pick_1, client=client_mad_barn, qty=500, serial_number='SN-MB-001')
@@ -147,7 +172,7 @@ class Command(BaseCommand):
         # --- 6. Create Orders ---
         ship_date = timezone.make_aware(datetime(2026, 4, 17, 12, 0, 0))
 
-        order_mb = OutboundOrder.objects.create(
+        order_mb = Order.objects.create(
             order_number="20260417-MADBARN-01",
             client=client_mad_barn,
             warehouse=calgary_wh,
@@ -162,10 +187,10 @@ class Command(BaseCommand):
             purchase_order='PO-20260417-001',
             tracking_number=''
         )
-        OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_1, qty=10, uom='Bag', price=45.0)
-        OutboundOrderItem.objects.create(order=order_mb, sku=sku_mb_2, qty=6, uom='Case', price=18.5)
+        OrderItem.objects.create(order=order_mb, sku=sku_mb_1, qty=10, uom='Bag', price=45.0)
+        OrderItem.objects.create(order=order_mb, sku=sku_mb_2, qty=6, uom='Case', price=18.5)
 
-        order_tf = OutboundOrder.objects.create(
+        order_tf = Order.objects.create(
             order_number="20260418-TECHFLOW-99",
             client=client_techflow,
             warehouse=langley_wh,
@@ -177,7 +202,7 @@ class Command(BaseCommand):
             country=client_techflow.country.name,
             purchase_order='PO-20260418-099'
         )
-        OutboundOrderItem.objects.create(order=order_tf, sku=sku_tf_1, qty=2, uom='Box', price=1599.99)
+        OrderItem.objects.create(order=order_tf, sku=sku_tf_1, qty=2, uom='Box', price=1599.99)
 
         # --- 7. Create Receipts ---
         receipt = Receipt.objects.create(

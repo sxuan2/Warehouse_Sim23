@@ -3,6 +3,8 @@ import zoneinfo
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 TIMEZONE_CHOICES = sorted([(tz, tz) for tz in zoneinfo.available_timezones()])
 
@@ -177,22 +179,131 @@ class Location(models.Model):
         return f"{self.name} - {self.get_type_display()}"
 
 class Sku(models.Model):
+    """
+    Represents a Stock Keeping Unit (SKU). 
+    This is the master data for products within the WMS, scoped by Client.
+    """
+
+    # --- Choice Classes ---
+    class TrackingMethod(models.TextChoices):
+        NONE = 'NONE', 'No Tracking'
+        BATCH = 'BATCH', 'Batch/Lot Tracking'
+        SERIAL = 'SERIAL', 'Serial Number Tracking'
+
+    class StorageCondition(models.TextChoices):
+        AMBIENT = 'AMBIENT', 'Ambient/Normal'
+        CHILLED = 'CHILLED', 'Chilled/Cold'
+        FROZEN = 'FROZEN', 'Frozen'
+        HAZMAT = 'HAZMAT', 'Hazardous Material'
+
+    # --- Identity & Ownership ---
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='skus', verbose_name="Client")
-    part_number = models.CharField(max_length=100, verbose_name="Part Number (SKU)")
-    description = models.TextField(null=True, blank=True, verbose_name="Description")
-    track_by = models.CharField(max_length=50, default="NONE", verbose_name="Tracking Method")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+    client = models.ForeignKey(
+        'Client', 
+        on_delete=models.CASCADE, 
+        related_name='skus', 
+        verbose_name="Client/Owner"
+    )
+    part_number = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        verbose_name="Part Number (SKU Code)"
+    )
+    barcode = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        null=True, 
+        blank=True, 
+        verbose_name="Primary Barcode"
+    )
+    name = models.CharField(max_length=255, verbose_name="Product Name")
+    description = models.TextField(null=True, blank=True, verbose_name="Technical Specification")
+
+    # --- Physical Dimensions (Metric System) ---
+    # Used for Putaway Logic and Volumetric Freight Calculation
+    length = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, 
+        verbose_name="Length (mm)", help_text="Unit: Millimeters"
+    )
+    width = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, 
+        verbose_name="Width (mm)"
+    )
+    height = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, 
+        verbose_name="Height (mm)"
+    )
+    weight = models.DecimalField(
+        max_digits=10, decimal_places=3, default=0, 
+        verbose_name="Gross Weight (kg)", help_text="Unit: Kilograms"
+    )
+    volume = models.DecimalField(
+        max_digits=15, decimal_places=4, default=0, 
+        verbose_name="Volume (mm³)", help_text="Calculated as L*W*H"
+    )
+
+    # --- Inventory Policy & Traceability ---
+    track_by = models.CharField(
+        max_length=20, 
+        choices=TrackingMethod.choices, 
+        default=TrackingMethod.NONE,
+        verbose_name="Tracking Method"
+    )
+    uom = models.CharField(
+        max_length=20, 
+        default="EA", 
+        verbose_name="Unit of Measure", 
+        help_text="e.g., EA (Each), CS (Case), PL (Pallet)"
+    )
+    
+    # Expiry and Shelf Life Logic
+    is_expiry_managed = models.BooleanField(default=False)
+    shelf_life_days = models.PositiveIntegerField(
+        default=0, 
+        verbose_name="Shelf Life (Days)"
+    )
+    min_inbound_shelf_life_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name="Min Inbound Life %",
+        help_text="Reject if remaining shelf life is below this percentage"
+    )
+
+    # --- Warehouse Operations ---
+    storage_condition = models.CharField(
+        max_length=20, 
+        choices=StorageCondition.choices, 
+        default=StorageCondition.AMBIENT
+    )
+    is_fragile = models.BooleanField(default=False)
+    abc_analysis = models.CharField(
+        max_length=1, 
+        choices=[('A', 'High Velocity'), ('B', 'Medium'), ('C', 'Low')],
+        default='B'
+    )
+
+    # --- Audit & Control ---
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'wms_sku'
+        # Multi-tenant constraint: Part Number must be unique per Client
         unique_together = ('client', 'part_number')
         verbose_name = "SKU"
         verbose_name_plural = "SKUs"
+        indexes = [
+            models.Index(fields=['client', 'barcode']),
+            models.Index(fields=['part_number']),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate volume before saving to database
+        self.volume = Decimal(self.length) * Decimal(self.width) * Decimal(self.height)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.part_number} ({self.client.name})"
+        return f"{self.client.name} | {self.part_number}"
 
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -239,7 +350,7 @@ class InventoryTransaction(models.Model):
         verbose_name = "Inventory Transaction"
         verbose_name_plural = "Inventory Transactions"
 
-class OutboundOrder(models.Model):
+class Order(models.Model):
     class StatusChoices(models.TextChoices):
         PENDING = 'PENDING', _('Pending')
         PROCESSING = 'PROCESSING', _('Processing')
@@ -312,16 +423,16 @@ class OutboundOrder(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'wms_outbound_order'
-        verbose_name = "Outbound Order"
-        verbose_name_plural = "Outbound Orders"
+        db_table = 'wms_order'
+        verbose_name = "Order"
+        verbose_name_plural = "Orders"
 
     def __str__(self):
         return f"{self.order_number} ({self.client.name})"
 
-class OutboundOrderItem(models.Model):
+class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.ForeignKey(OutboundOrder, on_delete=models.CASCADE, related_name='items')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     sku = models.ForeignKey('Sku', on_delete=models.RESTRICT, related_name='order_items')
     qty = models.IntegerField(verbose_name="Quantity")
     uom = models.CharField(max_length=50, default="Each", verbose_name="Primary Units")
@@ -330,7 +441,7 @@ class OutboundOrderItem(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:
-        db_table = 'wms_outbound_order_item'
+        db_table = 'wms_order_item'
 
 class Receipt(models.Model):
     class StatusChoices(models.TextChoices):

@@ -50,6 +50,10 @@
             <label class="block text-[9px] text-slate-500 uppercase font-bold mb-2">Transaction ID (Auto)</label>
             <input v-model="form.transaction_id" type="text" readonly placeholder="Auto-generated on save" class="w-full bg-wms-surface/60 border border-wms-border text-slate-400 p-2.5 text-xs outline-none font-mono cursor-not-allowed">
           </div>
+          <div>
+            <label class="block text-[9px] text-slate-500 uppercase font-bold mb-2">Reference Number</label>
+            <input v-model="form.reference_number" type="text" placeholder="Optional reference" class="w-full bg-wms-surface border border-wms-border text-wms-text p-2.5 text-xs outline-none focus:border-indigo-500 font-mono">
+          </div>
         </div>
       </div>
 
@@ -130,6 +134,7 @@ const locations = ref<any[]>([]);
 
 const form = reactive({
   transaction_id: '',
+  reference_number: '',
   client_id: '',
   warehouse_id: '',
   items: [{ sku_id: '', qty: 1, lot_number: '', putaway_location_id: '' }]

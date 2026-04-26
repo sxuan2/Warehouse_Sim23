@@ -10,7 +10,7 @@ export interface OrderItem {
     price: string | number | null;
 }
 
-export interface OutboundOrder {
+export interface Order {
     id?: string;
     order_number: string;
     transaction_id?: string | null;
@@ -62,7 +62,7 @@ export interface OutboundOrder {
 
 export const useOrderStore = defineStore('order', {
     state: () => ({
-        orders: [] as OutboundOrder[],
+        orders: [] as Order[],
         isLoading: false,
         error: null as string | null,
     }),

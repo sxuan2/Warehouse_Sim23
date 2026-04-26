@@ -3,23 +3,26 @@
     
     <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
       <div>
-        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Inbound Receipts Flow</div>
+        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Inbound Flow Overview</div>
         <div class="text-[10px] text-slate-500 mt-1">
-          Lifecycle: OPEN => COMPLETE => RECEIVED. Inventory updates only when RECEIVED.
+          Lifecycle: OPEN => COMPLETE => RECEIVED. Inventory updates at RECEIVED.
         </div>
       </div>
       <div class="flex gap-4">
-        <div class="border border-amber-500/20 bg-amber-500/5 px-4 py-2 min-w-[100px]">
+        <div class="border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-amber-400">Open</div>
-          <div class="text-lg font-bold text-wms-text">{{ openCount }}</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ openCount }}</div>
+          <div class="text-[10px] text-slate-500 mt-1">OPEN receipts</div>
         </div>
-        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-2 min-w-[100px]">
-          <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">Complete</div>
-          <div class="text-lg font-bold text-wms-text">{{ completeCount }}</div>
+        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 min-w-[120px]">
+          <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">Complete</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ completeCount }}</div>
+          <div class="text-[10px] text-slate-500 mt-1">COMPLETE receipts</div>
         </div>
-        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 min-w-[100px]">
+        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">Received</div>
-          <div class="text-lg font-bold text-wms-text">{{ receivedCount }}</div>
+          <div class="text-lg font-bold text-wms-text mt-1">{{ receivedCount }}</div>
+          <div class="text-[10px] text-slate-500 mt-1">RECEIVED receipts</div>
         </div>
       </div>
     </div>
@@ -224,7 +227,6 @@ import {
   FileDownIcon, 
   ChevronLeftIcon, 
   RefreshCcwIcon,
-  AlertTriangleIcon,
   XIcon
 } from 'lucide-vue-next';
 

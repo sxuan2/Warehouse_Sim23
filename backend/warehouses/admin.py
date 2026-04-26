@@ -3,7 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 from .models import (
     Client, CountryTimezone, Warehouse, Location, Sku, Inventory, 
-    InventoryTransaction, OutboundOrder, OutboundOrderItem,
+    InventoryTransaction, Order, OrderItem,
     Receipt, ReceiptItem, Country, Region
 )
 
@@ -118,19 +118,19 @@ class InventoryTransactionAdmin(admin.ModelAdmin):
     readonly_fields = ('timestamp', 'type', 'sku', 'client', 'change_qty', 'from_bin', 'to_bin', 'reference_id')
 
 # -----------------------------------------------------------------------------------------
-# 4. OUTBOUND ORDER ADMIN (极致还原，包含所有承运、路由、小包裹字段)
+# 4. ORDER ADMIN (极致还原，包含所有承运、路由、小包裹字段)
 # -----------------------------------------------------------------------------------------
-class OutboundOrderItemInline(admin.TabularInline):
-    model = OutboundOrderItem
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
     extra = 0
     fields = ('sku', 'qty', 'uom', 'price', 'weight', 'volume')
 
-@admin.register(OutboundOrder)
-class OutboundOrderAdmin(admin.ModelAdmin):
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
     list_display = ('order_number', 'client', 'warehouse', 'transaction_id', 'purchase_order', 'status', 'created_by', 'earliest_ship_date', 'created_at')
     list_filter = ('status', 'client', 'warehouse')
     search_fields = ('order_number', 'recipient_name', 'company_name', 'transaction_id', 'tracking_number')
-    inlines = [OutboundOrderItemInline]
+    inlines = [OrderItemInline]
     
     fieldsets = (
         ('Order Information Header', {

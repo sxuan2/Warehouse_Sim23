@@ -3,10 +3,10 @@ from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Client, Country, CountryTimezone, Region, Warehouse, Sku, Location, OutboundOrder, Inventory, InventoryTransaction, Receipt
+from .models import Client, Country, CountryTimezone, Region, Warehouse, Sku, Location, Order, Inventory, InventoryTransaction, Receipt
 from .serializers import (
     ClientSerializer, WarehouseSerializer, SkuSerializer, LocationSerializer,
-    OutboundOrderSerializer, InventorySerializer, InventoryTransactionSerializer, ReceiptSerializer
+    OrderSerializer, InventorySerializer, InventoryTransactionSerializer, ReceiptSerializer
 )
 from .services import InventoryService, OrderService, ReceiptService
 
@@ -88,7 +88,7 @@ class OrderFulfillmentView(APIView):
     def post(self, request, pk):
         try:
             order = OrderService.fulfill_order(pk)
-            serializer = OutboundOrderSerializer(order)
+            serializer = OrderSerializer(order)
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -98,7 +98,7 @@ class OrderRevertPendingView(APIView):
     def post(self, request, pk):
         try:
             order = OrderService.revert_to_pending(pk)
-            serializer = OutboundOrderSerializer(order)
+            serializer = OrderSerializer(order)
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -108,7 +108,7 @@ class OrderShipView(APIView):
     def post(self, request, pk):
         try:
             order = OrderService.ship_order(pk)
-            serializer = OutboundOrderSerializer(order)
+            serializer = OrderSerializer(order)
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -121,12 +121,12 @@ class InventoryListView(APIView):
 
 class OrderListView(APIView):
     def get(self, request):
-        orders = OutboundOrder.objects.prefetch_related('items__sku').all().order_by('-created_at')
-        serializer = OutboundOrderSerializer(orders, many=True)
+        orders = Order.objects.prefetch_related('items__sku').all().order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = OutboundOrderSerializer(data=request.data)
+        serializer = OrderSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)

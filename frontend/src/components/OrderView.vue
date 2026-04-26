@@ -1,34 +1,28 @@
 <template>
   <div class="flex flex-col gap-6 h-full">
     
-    <div class="bg-wms-bg border border-wms-border p-4 shrink-0">
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Fulfillment Flow Guide</div>
-          <div class="text-[10px] text-slate-500 mt-1">
-            Next action: Select a PENDING order to fulfill, then ship a COMPLETE order.
-          </div>
-        </div>
-        <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-          Pipeline: PENDING => COMPLETE => SHIPPED
+    <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
+      <div>
+        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Order Flow Overview</div>
+        <div class="text-[10px] text-slate-500 mt-1">
+          Lifecycle: PENDING => COMPLETE => SHIPPED. Fulfillment starts at PENDING.
         </div>
       </div>
-
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="border border-amber-500/20 bg-amber-500/5 p-3">
+      <div class="flex gap-4">
+        <div class="border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-amber-400">1. Queue</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ pendingOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">PENDING orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">PENDING orders</div>
         </div>
-        <div class="border border-indigo-500/20 bg-indigo-500/5 p-3">
+        <div class="border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-indigo-400">2. Fulfillment</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ completeOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">COMPLETE orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">COMPLETE orders</div>
         </div>
-        <div class="border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div class="border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 min-w-[120px]">
           <div class="text-[9px] uppercase font-bold tracking-widest text-emerald-400">3. Closed</div>
           <div class="text-lg font-bold text-wms-text mt-1">{{ shippedOrdersCount }}</div>
-          <div class="text-[10px] text-slate-500">SHIPPED orders</div>
+          <div class="text-[10px] text-slate-500 mt-1">SHIPPED orders</div>
         </div>
       </div>
     </div>
@@ -220,7 +214,7 @@
       <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
         <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
           <ArrowRightLeft class="text-indigo-500" :size="16" />
-          Outbound Manifests
+          Order Manifests
         </div>
         <button 
           @click="orderStore.fetchOrders()"
@@ -281,7 +275,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useOrderStore, type OutboundOrder } from '../store/order';
+import { useOrderStore, type Order } from '../store/order';
 // [核心修复] 移除所有容易断层的 Icon 后缀，使用基础底包命名，保证兼容性
 import { 
   ArrowRightLeft, 
@@ -294,7 +288,7 @@ import {
 } from 'lucide-vue-next';
 
 const orderStore = useOrderStore();
-const selectedOrder = ref<OutboundOrder | null>(null);
+const selectedOrder = ref<Order | null>(null);
 const activeSubTab = ref('items');
 
 // [防御性修复] 就算 store 彻底断联返回 undefined，这里也会 fallback 到 []，绝不崩溃

@@ -3,7 +3,7 @@ from django.db import transaction
 import re
 from .models import (
     Client, Warehouse, Location, Sku, Inventory, 
-    OutboundOrder, OutboundOrderItem, InventoryTransaction,
+    Order, OrderItem, InventoryTransaction,
     Receipt, ReceiptItem
 )
 
@@ -43,30 +43,30 @@ class InventorySerializer(serializers.ModelSerializer):
             'client', 'client_name', 'qty', 'serial_number', 'lot_number', 'expiry_date'
         ]
 
-# --- Outbound Order Serializers ---
-class OutboundOrderItemSerializer(serializers.ModelSerializer):
+# --- Order Serializers ---
+class OrderItemSerializer(serializers.ModelSerializer):
     sku_part_number = serializers.CharField(source='sku.part_number', read_only=True)
     sku_id = serializers.UUIDField(write_only=True)
 
     class Meta:
-        model = OutboundOrderItem
+        model = OrderItem
         fields = '__all__'
         read_only_fields = ('order', 'sku')
 
-class OutboundOrderSerializer(serializers.ModelSerializer):
-    items = OutboundOrderItemSerializer(many=True)
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
     client_id = serializers.UUIDField(write_only=True)
     warehouse_id = serializers.UUIDField(write_only=True)
     client_name = serializers.CharField(source='client.name', read_only=True)
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
 
     class Meta:
-        model = OutboundOrder
+        model = Order
         fields = '__all__'
         read_only_fields = ('client', 'warehouse')
 
     def _next_transaction_id(self) -> str:
-        existing_ids = OutboundOrder.objects.exclude(
+        existing_ids = Order.objects.exclude(
             transaction_id__isnull=True
         ).exclude(
             transaction_id=''
@@ -86,9 +86,7 @@ class OutboundOrderSerializer(serializers.ModelSerializer):
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
 
-        transaction_id = validated_data.get('transaction_id')
-        if not transaction_id:
-            validated_data['transaction_id'] = self._next_transaction_id()
+        validated_data['transaction_id'] = self._next_transaction_id()
         
         client = Client.objects.get(id=client_id)
         warehouse = Warehouse.objects.get(id=warehouse_id)
@@ -96,7 +94,7 @@ class OutboundOrderSerializer(serializers.ModelSerializer):
         validated_data['client'] = client
         validated_data['warehouse'] = warehouse
 
-        order = OutboundOrder.objects.create(**validated_data)
+        order = Order.objects.create(**validated_data)
 
         for item_data in items_data:
             sku_id = item_data.pop('sku_id')
@@ -106,7 +104,7 @@ class OutboundOrderSerializer(serializers.ModelSerializer):
             if sku.client != client:
                 raise serializers.ValidationError(f"SKU {sku.part_number} does not belong to {client.name}")
                 
-            OutboundOrderItem.objects.create(order=order, sku=sku, **item_data)
+            OrderItem.objects.create(order=order, sku=sku, **item_data)
         
         return order
 
@@ -161,7 +159,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             if match:
                 max_numeric = max(max_numeric, int(match.group(1)))
 
-        return f"RCV{max_numeric + 1:06d}"
+        return f"{max_numeric + 1:06d}"
 
     @transaction.atomic
     def create(self, validated_data):
@@ -169,9 +167,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
         client_id = validated_data.pop('client_id')
         warehouse_id = validated_data.pop('warehouse_id')
 
-        transaction_id = validated_data.get('transaction_id')
-        if not transaction_id:
-            validated_data['transaction_id'] = self._next_transaction_id()
+        validated_data['transaction_id'] = self._next_transaction_id()
         
         validated_data['client'] = Client.objects.get(id=client_id)
         validated_data['warehouse'] = Warehouse.objects.get(id=warehouse_id)
