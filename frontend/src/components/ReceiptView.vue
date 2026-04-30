@@ -221,6 +221,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'ReceiptView' });
 import { ref, computed, onMounted } from 'vue';
 import { useReceiptStore, type Receipt } from '../store/receipt';
 import { 

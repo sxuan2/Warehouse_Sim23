@@ -1,5 +1,9 @@
 from django.http import JsonResponse
 from django.contrib.auth.models import User
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction, IntegrityError
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,6 +13,8 @@ from .serializers import (
     OrderSerializer, InventorySerializer, InventoryTransactionSerializer, ReceiptSerializer
 )
 from .services import InventoryService, OrderService, ReceiptService
+
+#######################################################################
 
 class ClientListView(APIView):
     def get(self, request):
@@ -93,7 +99,6 @@ class OrderFulfillmentView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class OrderRevertPendingView(APIView):
     def post(self, request, pk):
         try:
@@ -102,7 +107,6 @@ class OrderRevertPendingView(APIView):
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class OrderShipView(APIView):
     def post(self, request, pk):
@@ -181,3 +185,80 @@ def get_region_choices(request):
         'timezones': [{'v': t['timezone_id'], 'n': t['display_name']} for t in timezones]
     }
     return JsonResponse(data, safe=False)
+
+class BulkImportLocationView(APIView):
+    """
+    API view for handling bulk import of locations via JSON payload.
+    Ensures strict database integrity using atomic transactions.
+    """
+    def post(self, request):
+        data = request.data
+        
+        # Validate that the incoming payload is a list/array
+        if not isinstance(data, list):
+            return Response({
+                "error": "Invalid data format: Expected a list of JSON objects."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        locations_to_create = []
+        
+        try:
+            # Open a strict atomic transaction: rollback everything if ANY error occurs
+            with transaction.atomic():
+                for index, row in enumerate(data):
+                    # 1. Validate Foreign Key: Warehouse
+                    warehouse_obj = None
+                    if row.get('warehouse_id'):
+                        try:
+                            warehouse_obj = Warehouse.objects.get(id=row['warehouse_id'])
+                        except Warehouse.DoesNotExist:
+                            # This will trigger the ValueError exception block and rollback
+                            raise ValueError(f"Row {index + 1} Error: Warehouse ID {row['warehouse_id']} does not exist.")
+
+                    # 2. Construct Location object mapping from the JSON row
+                    loc = Location(
+                        name=row['name'],
+                        warehouse=warehouse_obj,
+                        type=row.get('type', 'STORAGE'),
+                        zone=row.get('zone', ''),
+                        description=row.get('description', ''),
+                        pick_path=int(row.get('pick_path') or 0),
+                        is_non_pickable=bool(row.get('is_non_pickable', False)),
+                        width=float(row.get('width') or 0),
+                        length=float(row.get('length') or 0),
+                        height=float(row.get('height') or 0),
+                        max_weight=float(row.get('max_weight') or 0),
+                        min_temperature=float(row.get('min_temperature') or 0),
+                        min_quantity=int(row.get('min_quantity') or 0),
+                        allocation_priority=int(row.get('allocation_priority') or 10),
+                        billing_type=row.get('billing_type', '')
+                    )
+                    locations_to_create.append(loc)
+                
+                # 3. Execute bulk insert to heavily optimize database I/O
+                Location.objects.bulk_create(locations_to_create)
+                
+            # If execution reaches here, the transaction is successfully committed
+            return Response({
+                "success": True, 
+                "message": f"Successfully imported {len(locations_to_create)} locations.",
+                "count": len(locations_to_create)
+            }, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+            # Catch unique constraint violations (e.g., duplicate Location ID) and rollback
+            return Response({
+                "error": f"Database Conflict (Rolled back): {str(e)}"
+            }, status=status.HTTP_409_CONFLICT)
+            
+        except ValueError as e:
+            # Catch custom validation errors (e.g., Warehouse missing) and rollback
+            return Response({
+                "error": f"Validation Failed (Rolled back): {str(e)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            # Catch any other unexpected system exceptions and rollback
+            return Response({
+                "error": f"System Error (Rolled back): {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

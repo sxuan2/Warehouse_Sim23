@@ -156,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'InventoryView' });
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useInventoryStore } from '../store/inventory';
 import apiClient from '../api/client';

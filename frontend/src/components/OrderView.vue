@@ -274,6 +274,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'OrderView' });
 import { ref, computed, onMounted } from 'vue';
 import { useOrderStore, type Order } from '../store/order';
 // [核心修复] 移除所有容易断层的 Icon 后缀，使用基础底包命名，保证兼容性

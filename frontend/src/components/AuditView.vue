@@ -75,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AuditView' });
 import { onMounted } from 'vue';
 import { useAuditStore } from '../store/audit';
 import { ActivitySquareIcon, RefreshCcwIcon } from 'lucide-vue-next';

@@ -3,7 +3,7 @@ from .views import (
     ClientListView, UserListView, CountryListView, RegionListView,
     WarehouseListView, SkuDictView, LocationDictView,
     InventoryReceiveView, OrderFulfillmentView, OrderRevertPendingView, OrderShipView, InventoryListView,
-    OrderListView, TransactionListView, ReceiptListView, ReceiptStatusUpdateView, get_region_choices
+    OrderListView, TransactionListView, ReceiptListView, ReceiptStatusUpdateView, get_region_choices, BulkImportLocationView
 )
 
 urlpatterns = [
@@ -32,4 +32,5 @@ urlpatterns = [
     path('receipts/<str:pk>/status/', ReceiptStatusUpdateView.as_view(), name='receipt-status-update'),
     
     path('api/regions/', get_region_choices, name='api_regions'),
+    path('api/warehouses/location/bulk_import/', BulkImportLocationView.as_view(), name='location-bulk-import'),
 ]

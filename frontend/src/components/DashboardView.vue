@@ -153,6 +153,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'DashboardView' });
+
 import { computed, onMounted } from 'vue';
 import { useOrderStore } from '../store/order';
 import { useInventoryStore } from '../store/inventory';

@@ -9,6 +9,11 @@
       <button @click="clearErrors" class="text-wms-text/50 hover:text-wms-text"><X :size="14" /></button>
     </div>
 
+    <div v-if="isSuccess" class="bg-emerald-600/20 border-b border-emerald-500/50 p-3 flex justify-between items-center z-30">
+      <span class="text-emerald-400 text-[10px] font-bold uppercase tracking-widest">Order Created Successfully!</span>
+      <button @click="isSuccess = false" class="text-emerald-400 hover:text-white text-[10px] underline">Dismiss</button>
+    </div>
+
     <div class="p-4 border-b border-wms-border flex justify-between items-center bg-wms-header">
       <div class="flex items-center gap-4">
         <h2 class="text-wms-text text-xs font-bold uppercase tracking-[0.2em]">Create Order</h2>
@@ -296,12 +301,14 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'CreateOrderView' });
+
 import { ref, reactive, onMounted, watch } from 'vue';
 import { useOrderStore } from '../store/order';
-// 【修复】使用安全的图标命名
 import { AlertCircle, X } from 'lucide-vue-next';
 import apiClient from '../api/client';
 
+const isSuccess = ref(false);
 const emit = defineEmits(['cancel', 'success']);
 const orderStore = useOrderStore();
 const localError = ref<string | null>(null);
@@ -451,7 +458,8 @@ const submitForm = async () => {
     };
 
     await orderStore.createOrder(payload);
-    emit('success');
+    // emit('success');
+    isSuccess.value = true;
   } catch (err) {}
 };
 </script>

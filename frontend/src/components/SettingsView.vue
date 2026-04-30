@@ -45,10 +45,35 @@
         Clear Branding
       </button>
     </div>
+    
+    <!-- Trigger Button -->
+    <div class="mt-8 pt-6 border-t border-wms-border">
+      <h2 class="text-sm font-bold uppercase tracking-widest text-wms-text mb-4">Data Management</h2>
+      <button
+        type="button"
+        @click="isImportModalOpen = true"
+        class="px-4 py-2 text-[10px] uppercase font-bold tracking-widest border border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+      >
+        Open Location Bulk Import Tool
+      </button>
+    </div>
+
+    <!-- The Modal Component -->
+    <ImportLocationModal 
+      v-if="isImportModalOpen" 
+      @close="isImportModalOpen = false"
+      @success="isImportModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'SettingsView' });
+
+import ImportLocationModal from './ImportLocationModal.vue';
+import { ref } from 'vue';
+const isImportModalOpen = ref(false);
+
 defineProps<{
   companyName: string;
   logoUrl: string;
