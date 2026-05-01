@@ -188,19 +188,29 @@ const inboundForm = reactive({
 });
 
 onMounted(async () => {
+  // 1. 获取库存主数据
   inventoryStore.fetchInventory();
   
+  // 2. 分开请求字典数据，防止“一个失败导致全部失败”
   try {
-    const [cRes, sRes, lRes] = await Promise.all([
-      apiClient.get('/warehouses/client/'),
-      apiClient.get('/warehouses/sku/'),
-      apiClient.get('/warehouses/location/')
+    // 获取客户列表 (对应 path('client/'))
+    const cRes = await apiClient.get('/warehouses/client/');
+    clients.value = Array.isArray(cRes.data) ? cRes.data : [];
+    console.log("Inventory Clients Loaded:", clients.value.length);
+  } catch (error) {
+    console.error("Failed to load clients:", error);
+  }
+
+  try {
+    // 获取 SKU 和 Location (对应 sku/list/ 和 location/list/)
+    const [sRes, lRes] = await Promise.all([
+      apiClient.get('/warehouses/sku/list/'),
+      apiClient.get('/warehouses/location/list/')
     ]);
-    clients.value = cRes.data;
     dicts.skus = sRes.data;
     dicts.locations = lRes.data;
   } catch (error) {
-    console.error("Failed to load metrics and dictionaries:", error);
+    console.error("Failed to load SKU or Location dictionaries:", error);
   }
 });
 

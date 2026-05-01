@@ -161,7 +161,9 @@ watch(() => form.client_id, async (newClientId) => {
 const fetchSkusByClient = async (clientId: string) => {
   isUpdatingSkus.value = true;
   try {
-    const res = await apiClient.get(`/warehouses/sku/?client_id=${clientId}`);
+    // 核心修复：这里也必须补上 /list/ 
+    // 这样才能匹配后端的 path('sku/list/', SkuListView.as_view())
+    const res = await apiClient.get(`/warehouses/sku/list/?client_id=${clientId}`);
     skus.value = res.data;
   } catch (err) {
     localError.value = "Failed to fetch SKUs for the selected client.";
@@ -172,15 +174,18 @@ const fetchSkusByClient = async (clientId: string) => {
 
 onMounted(async () => {
   try {
+    // 1. 只拉取基础字典：客户、仓库、以及补全路径后的库位
     const [cRes, wRes, lRes] = await Promise.all([
       apiClient.get('/warehouses/client/'),
       apiClient.get('/warehouses/warehouse/'),
-      apiClient.get('/warehouses/location/')
+      // 核心修复：这里必须补上 /list/
+      apiClient.get('/warehouses/location/list/') 
     ]);
     clients.value = cRes.data;
     warehouses.value = wRes.data;
     locations.value = lRes.data;
   } catch (err) {
+    // 如果上面任何一个 404，这里就会报 Database link offline
     localError.value = "CRITICAL: Database link offline.";
   }
 });
