@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  new_backend:
+    build: ./backend
+    container_name: new_project_backend
+    restart: always
+    volumes:
+      - ./backend/db:/app/db  # 持久化 SQLite 数据库文件
+      - ./backend/static:/app/staticfiles
+    environment:
+      - DEBUG=False
+
+  new_frontend:
+    build: ./frontend
+    container_name: new_project_frontend
+    restart: always
+    ports:
+      - "8081:80"  # 服务器 8081 -> 容器 80
+    depends_on:
+      - new_backend
+
+networks:
+  default:
+    name: new_project_network
