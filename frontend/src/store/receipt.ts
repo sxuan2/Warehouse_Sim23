@@ -22,13 +22,11 @@ export interface Receipt {
     client_name?: string;
     warehouse_name?: string;
     reference_number?: string | null;
-    created_at?: string;
-    // === 核心修复：使用 any 绕过 Vue 模板对 Date 的苛刻空值类型检查 ===
+    created_at?: any;
     arrival_date?: any; 
     client_id: string;
     warehouse_id: string;
     items: ReceiptItem[];
-    // === 核心修复：补全常规信息面板所需的缺失字段 ===
     purchase_order_number?: string | null;
     trailer_pro_number?: string | null;
 }
