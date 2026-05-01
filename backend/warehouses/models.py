@@ -196,6 +196,12 @@ class Sku(models.Model):
         FROZEN = 'FROZEN', 'Frozen'
         HAZMAT = 'HAZMAT', 'Hazardous Material'
 
+    # 【新增】分配策略选项
+    class AllocationMethod(models.TextChoices):
+        FIFO = 'FIFO', 'First In First Out (Earliest Received First)'
+        FEFO = 'FEFO', 'First Expired First Out (Earliest Expiry First)'
+        PICKPATH = 'PICKPATH', 'Shortest Pick Path (Nearest Location First)'
+
     # --- Identity & Ownership ---
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(
@@ -220,7 +226,6 @@ class Sku(models.Model):
     description = models.TextField(null=True, blank=True, verbose_name="Technical Specification")
 
     # --- Physical Dimensions (Metric System) ---
-    # Used for Putaway Logic and Volumetric Freight Calculation
     length = models.DecimalField(
         max_digits=10, decimal_places=2, default=0, 
         verbose_name="Length (mm)", help_text="Unit: Millimeters"
@@ -268,6 +273,14 @@ class Sku(models.Model):
         help_text="Reject if remaining shelf life is below this percentage"
     )
 
+    # 【新增】将分配策略绑定到 SKU 上，默认为 FIFO
+    allocation_method = models.CharField(
+        max_length=20,
+        choices=AllocationMethod.choices,
+        default=AllocationMethod.FIFO,
+        verbose_name="Allocation Strategy"
+    )
+
     # --- Warehouse Operations ---
     storage_condition = models.CharField(
         max_length=20, 
@@ -288,7 +301,6 @@ class Sku(models.Model):
 
     class Meta:
         db_table = 'wms_sku'
-        # Multi-tenant constraint: Part Number must be unique per Client
         unique_together = ('client', 'part_number')
         verbose_name = "SKU"
         verbose_name_plural = "SKUs"
@@ -298,12 +310,12 @@ class Sku(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Auto-calculate volume before saving to database
         self.volume = Decimal(self.length) * Decimal(self.width) * Decimal(self.height)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.client.name} | {self.part_number}"
+
 
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -314,6 +326,9 @@ class Inventory(models.Model):
     serial_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Serial Number")
     lot_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Lot Number")
     expiry_date = models.DateTimeField(null=True, blank=True, verbose_name="Expiry Date")
+    
+    # 【新增】记录该批库存首次入库的时间，用于 FIFO 计算
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At / Receipt Date")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     class Meta:

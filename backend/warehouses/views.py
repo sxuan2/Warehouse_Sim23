@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.http import JsonResponse
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
@@ -145,9 +146,26 @@ class WarehouseDetailView(APIView):
 
 class SkuListView(APIView):
     def get(self, request):
-        # 默认按客户和零件号排序
-        skus = Sku.objects.all().order_by('client__name', 'part_number')
-        serializer = SkuSerializer(skus, many=True)
+        # 1. 基础查询集，默认按客户和零件号排序
+        queryset = Sku.objects.all().order_by('client__name', 'part_number')
+
+        # 2. 接收前端传来的筛选参数
+        client_id = request.query_params.get('client')
+        search = request.query_params.get('search')
+
+        # 3. 客户过滤
+        if client_id:
+            queryset = queryset.filter(client_id=client_id)
+
+        # 4. SKU 编号或名称模糊搜索
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(part_number__icontains=search) |
+                Q(name__icontains=search)
+            )
+
+        serializer = SkuSerializer(queryset, many=True)
         return Response(serializer.data)
 
     def post(self, request):
@@ -276,8 +294,36 @@ class OrderShipView(APIView):
 
 class InventoryListView(APIView):
     def get(self, request):
-        inventory = Inventory.objects.all()
-        serializer = InventorySerializer(inventory, many=True)
+        # 1. 基础查询集，使用 select_related 优化关联查询性能
+        queryset = Inventory.objects.select_related(
+            'sku', 'bin__warehouse', 'client'
+        ).all()
+
+        # 2. 核心筛选逻辑
+        client_id = request.query_params.get('client')
+        warehouse_id = request.query_params.get('warehouse')
+        location_type = request.query_params.get('type')
+        abc_analysis = request.query_params.get('abc')
+        search = request.query_params.get('search')
+
+        if client_id:
+            queryset = queryset.filter(client_id=client_id)
+        if warehouse_id:
+            queryset = queryset.filter(bin__warehouse_id=warehouse_id)
+        if location_type:
+            queryset = queryset.filter(bin__type=location_type)
+        if abc_analysis:
+            queryset = queryset.filter(sku__abc_analysis=abc_analysis)
+        
+        # 支持按 SKU Part Number 或 批次号搜索
+        if search:
+            queryset = queryset.filter(
+                Q(sku__part_number__icontains=search) | 
+                Q(lot_number__icontains=search)
+            )
+
+        # 3. 序列化并返回
+        serializer = InventorySerializer(queryset, many=True)
         return Response(serializer.data)
 
 class OrderListView(APIView):

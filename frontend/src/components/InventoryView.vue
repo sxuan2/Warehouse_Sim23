@@ -23,26 +23,56 @@
 
     <div class="bg-wms-bg border border-wms-border flex flex-col shadow-2xl relative overflow-hidden flex-1 min-h-0">
       
-      <div class="p-4 border-b border-wms-border flex justify-between items-center bg-wms-header">
-        <div class="flex items-center gap-6">
-          <h3 class="font-bold text-wms-text text-xs tracking-widest flex items-center gap-2 uppercase">
+      <!-- 顶部控制栏 (包含新的筛选器) -->
+      <div class="p-4 border-b border-wms-border flex justify-between items-center bg-wms-header flex-wrap gap-4">
+        <div class="flex items-center gap-6 flex-1">
+          <h3 class="font-bold text-wms-text text-xs tracking-widest flex items-center gap-2 uppercase shrink-0">
             <DatabaseIcon :size="14" class="text-indigo-500" />
             Inventory_Ledger
           </h3>
           
-          <div class="flex items-center gap-3 border-l border-wms-border pl-6">
-            <span class="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">View By Customer:</span>
+          <!-- 黄金筛选栏 -->
+          <div class="flex flex-wrap items-center gap-4 border-l border-wms-border pl-6">
+            <!-- 客户筛选 -->
             <select 
               v-model="selectedClientId" 
-              class="bg-wms-header border border-wms-border text-indigo-400 text-[10px] px-3 py-1 outline-none focus:border-indigo-500 transition-colors cursor-pointer uppercase font-bold"
+              class="bg-wms-surface border border-wms-border text-indigo-400 text-[10px] px-3 py-1.5 outline-none focus:border-indigo-500 transition-colors cursor-pointer uppercase font-bold"
             >
-              <option value="">-- All Customer Inventory --</option>
+              <option value="">-- All Customers --</option>
               <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
+
+            <!-- 仓库筛选 -->
+            <select 
+              v-model="filters.warehouse" 
+              class="bg-wms-surface border border-wms-border text-slate-300 text-[10px] px-3 py-1.5 outline-none focus:border-indigo-500 transition-colors cursor-pointer uppercase font-bold"
+            >
+              <option value="">-- All Warehouses --</option>
+              <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+
+            <!-- 库位类型筛选 -->
+            <select 
+              v-model="filters.type" 
+              class="bg-wms-surface border border-wms-border text-slate-300 text-[10px] px-3 py-1.5 outline-none focus:border-indigo-500 transition-colors cursor-pointer uppercase font-bold"
+            >
+              <option value="">-- All Types --</option>
+              <option v-for="t in locationTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
+
+            <!-- 搜索框 -->
+            <div class="relative">
+              <input 
+                v-model="filters.search" 
+                placeholder="SEARCH SKU / LOT..." 
+                class="bg-wms-surface border border-wms-border text-[10px] pl-8 pr-3 py-1.5 text-wms-text outline-none focus:border-indigo-500 w-48 uppercase font-mono placeholder:text-slate-600"
+              />
+              <SearchIcon :size="12" class="absolute left-3 top-2 text-slate-500" />
+            </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 shrink-0">
           <button 
             @click="isReceiveModalOpen = true"
             class="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-600/20 px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95"
@@ -50,9 +80,10 @@
             <PlusIcon :size="12" />
             Receive_Stock
           </button>
-          </div>
+        </div>
       </div>
 
+      <!-- 库存表格 -->
       <div class="overflow-x-auto min-h-[550px] custom-scrollbar">
         <div v-if="inventoryStore.isLoading" class="flex-1 flex flex-col items-center justify-center p-20 gap-4">
           <RefreshCcwIcon class="animate-spin text-indigo-500" :size="24" />
@@ -60,10 +91,12 @@
         </div>
         
         <table v-else class="w-full text-left border-collapse">
-          <thead class="bg-wms-header text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold border-b border-wms-border">
+          <thead class="bg-wms-header text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold border-b border-wms-border whitespace-nowrap">
             <tr>
+              <th class="px-6 py-4">WH</th> <!-- 新增: 仓库列 -->
               <th class="px-6 py-4">Customer Entity</th>
               <th class="px-6 py-4">SKU Hash</th>
+              <th class="px-6 py-4">Zone</th> <!-- 新增: 库区列 -->
               <th class="px-6 py-4">Location Node</th>
               <th class="px-6 py-4">Lot Number</th>
               <th class="px-6 py-4 text-right">Quantity</th>
@@ -73,24 +106,43 @@
             <tr 
               v-for="item in filteredInventory" 
               :key="item.id" 
-              class="border-b border-wms-border hover:bg-white/[0.02] transition-colors group"
+              class="border-b border-wms-border hover:bg-white/[0.02] transition-colors group whitespace-nowrap"
             >
+              <!-- 仓库名称 -->
+              <td class="px-6 py-4 text-indigo-500 font-bold tracking-widest">
+                {{ item.location_details?.warehouse_name || '---' }}
+              </td>
+              <!-- 客户实体 -->
               <td class="px-6 py-4 font-bold text-slate-500 uppercase tracking-tighter">
                 {{ item.client_name }}
               </td>
+              <!-- SKU -->
               <td class="px-6 py-4 font-bold text-indigo-400/80 group-hover:text-wms-text transition-colors">
-                {{ item.sku_details.part_number }}
+                {{ item.sku_details?.part_number || 'UNKNOWN' }}
               </td>
-              <td class="px-6 py-4">{{ item.location_details.name }}</td>
-              <td class="px-6 py-4 text-[#58a6ff]/40 italic">{{ item.lot_number || '---' }}</td>
-              <td class="px-6 py-4 text-right tabular-nums text-wms-text font-bold">{{ item.qty.toFixed(2) }}</td>
+              <!-- 库区 -->
+              <td class="px-6 py-4 text-slate-400">
+                {{ item.location_details?.zone || '---' }}
+              </td>
+              <!-- 库位 -->
+              <td class="px-6 py-4 text-slate-300">
+                {{ item.location_details?.name || '---' }}
+              </td>
+              <!-- 批次号 -->
+              <td class="px-6 py-4 text-[#58a6ff]/40 italic">
+                {{ item.lot_number || '---' }}
+              </td>
+              <!-- 数量 -->
+              <td class="px-6 py-4 text-right tabular-nums text-wms-text font-bold">
+                {{ Number(item.qty).toFixed(2) }}
+              </td>
             </tr>
             
             <tr v-if="filteredInventory.length === 0">
-              <td colspan="5" class="px-6 py-32 text-center text-slate-700 italic border-none bg-black/10">
+              <td colspan="7" class="px-6 py-32 text-center text-slate-700 italic border-none bg-black/10">
                 <div class="flex flex-col items-center gap-4">
                   <DatabaseZapIcon class="opacity-10" :size="48" />
-                  <div class="uppercase tracking-widest text-[10px] font-bold">[EMPTY_SET_FOR_SELECTED_CLIENT]</div>
+                  <div class="uppercase tracking-widest text-[10px] font-bold">[EMPTY_SET_FOR_CURRENT_FILTERS]</div>
                 </div>
               </td>
             </tr>
@@ -99,6 +151,7 @@
       </div>
     </div>
 
+    <!-- 错误提示栏 -->
     <div v-if="inventoryStore.error" class="bg-rose-500/10 border border-rose-500/20 p-4 shrink-0 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <AlertTriangleIcon class="text-rose-500" :size="12" />
@@ -106,6 +159,7 @@
       </div>
     </div>
 
+    <!-- 入库弹窗 -->
     <div v-if="isReceiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
       <div class="bg-wms-bg border border-indigo-500/30 w-full max-w-md p-8 shadow-[0_0_50px_rgba(99,102,241,0.2)] relative">
         <div class="text-wms-text text-xs font-bold uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
@@ -162,21 +216,66 @@ import { useInventoryStore } from '../store/inventory';
 import apiClient from '../api/client';
 import { 
   DatabaseIcon, PlusIcon, RefreshCcwIcon, 
-  AlertTriangleIcon, DatabaseZapIcon 
+  AlertTriangleIcon, DatabaseZapIcon, SearchIcon 
 } from 'lucide-vue-next';
 
 const inventoryStore = useInventoryStore();
 
+// 基础数据与字典
 const selectedClientId = ref(''); 
 const clients = ref<any[]>([]);
+const warehouses = ref<any[]>([]);
 const dicts = reactive({
   skus: [] as any[],
   locations: [] as any[]
 });
 
+// 新增：筛选器状态
+const filters = reactive({
+  warehouse: '',
+  type: '',
+  search: ''
+});
+
+// 新增：库位类型定义 (匹配后端 TypeChoices)
+const locationTypes = [
+  { label: 'Storage', value: 'STORAGE' },
+  { label: 'Staging', value: 'STAGING' },
+  { label: 'PickLine', value: 'PICKLINE' },
+  { label: 'Quarantine', value: 'QUARANTINE' },
+  { label: 'Put-away', value: 'PUTAWAY' }
+];
+
+// 新增/修改：完全前端驱动的多条件过滤逻辑
 const filteredInventory = computed(() => {
-  if (!selectedClientId.value) return inventoryStore.items;
-  return inventoryStore.items.filter(item => item.client === selectedClientId.value);
+  let items = inventoryStore.items;
+
+  // 1. 过滤客户
+  if (selectedClientId.value) {
+    items = items.filter(item => item.client === selectedClientId.value);
+  }
+
+  // 2. 过滤仓库 (匹配 location_details 里的 warehouse UUID)
+  if (filters.warehouse) {
+    items = items.filter(item => item.location_details?.warehouse === filters.warehouse);
+  }
+
+  // 3. 过滤库位类型
+  if (filters.type) {
+    items = items.filter(item => item.location_details?.type === filters.type);
+  }
+
+  // 4. 模糊搜索 (匹配 SKU 编号 或 批次号)
+  if (filters.search) {
+    const term = filters.search.toLowerCase().trim();
+    items = items.filter(item => {
+      const matchSku = item.sku_details?.part_number?.toLowerCase().includes(term);
+      const matchLot = item.lot_number?.toLowerCase().includes(term);
+      return matchSku || matchLot;
+    });
+  }
+
+  return items;
 });
 
 const isReceiveModalOpen = ref(false);
@@ -191,18 +290,19 @@ onMounted(async () => {
   // 1. 获取库存主数据
   inventoryStore.fetchInventory();
   
-  // 2. 分开请求字典数据，防止“一个失败导致全部失败”
+  // 2. 分开请求字典数据
   try {
-    // 获取客户列表 (对应 path('client/'))
     const cRes = await apiClient.get('/warehouses/client/');
-    clients.value = Array.isArray(cRes.data) ? cRes.data : [];
-    console.log("Inventory Clients Loaded:", clients.value.length);
+    clients.value = Array.isArray(cRes.data) ? cRes.data : (cRes.data?.results || []);
+    
+    // 获取仓库列表用于筛选器
+    const wRes = await apiClient.get('/warehouses/warehouse/');
+    warehouses.value = Array.isArray(wRes.data) ? wRes.data : (wRes.data?.results || []);
   } catch (error) {
-    console.error("Failed to load clients:", error);
+    console.error("Failed to load clients or warehouses:", error);
   }
 
   try {
-    // 获取 SKU 和 Location (对应 sku/list/ 和 location/list/)
     const [sRes, lRes] = await Promise.all([
       apiClient.get('/warehouses/sku/list/'),
       apiClient.get('/warehouses/location/list/')
@@ -232,7 +332,7 @@ const handleReceiveStock = async () => {
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
 .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #334155; }

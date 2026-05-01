@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import F, Sum
+# from django.db.models.functions import Coalesce
 from .models import Inventory, InventoryTransaction, Order, Sku, Location, Receipt
 
 class InventoryService:
@@ -39,8 +40,10 @@ class OrderService:
     @transaction.atomic
     def fulfill_order(order_key):
         """
-        Outbound Logic: Complex multi-bin deduction algorithm with atomic locking.
+        Outbound Logic: Multi-bin deduction algorithm powered by SKU-specific Allocation Strategy.
+        Supports: FIFO, FEFO, PICKPATH with automatic fallback.
         """
+        # 1. 查找并锁定订单
         order = Order.objects.select_for_update().filter(transaction_id=order_key).first()
         if not order:
             order = Order.objects.select_for_update().filter(id=order_key).first()
@@ -50,54 +53,86 @@ class OrderService:
         if order.status in ['SHIPPED', 'COMPLETE']:
             raise ValueError("Order has already been completed.")
 
-        order_items = order.items.all()
+        order_items = order.items.select_related('sku').all()
         
         for item in order_items:
             remaining_to_deduct = item.qty
+            sku = item.sku
+            method = sku.allocation_method
             
-            # Find all bins containing this SKU, sorted by quantity descending
-            # Using select_for_update() to prevent race conditions during shipping
-            stock_records = Inventory.objects.select_for_update().filter(
-                sku_id=item.sku_id,
+            # 2. 查找可用库存（锁定以防止并发发货冲突）
+            base_query = Inventory.objects.select_for_update().filter(
+                sku_id=sku.id,
                 qty__gt=0
-            ).order_by('-qty')
+            ).select_related('bin')
 
-            total_available = stock_records.aggregate(total=Sum('qty'))['total'] or 0
-            
+            # 3. 校验总库存是否充足
+            total_available = base_query.aggregate(total=Sum('qty'))['total'] or 0
             if total_available < item.qty:
                 raise ValueError(
-                    f"Insufficient stock for SKU: {item.sku.part_number}. "
+                    f"Insufficient stock for SKU: {sku.part_number}. "
                     f"Required: {item.qty}, Available: {total_available}"
                 )
 
+            # 4. 根据 SKU 的分配策略应用不同的排序规则
+            if method == Sku.AllocationMethod.FEFO:
+                # FEFO (先过期先出)：优先找有过期日期的且最早过期的。
+                # Coalesce 技巧: 如果没有 expiry_date，将其排到最后面（按 FIFO 兜底）
+                # 排序字段加入 bin__pick_path 作为第二优先级，同等保质期离得近先拿
+                stock_records = base_query.order_by(
+                    F('expiry_date').asc(nulls_last=True),
+                    'created_at',
+                    'bin__pick_path'
+                )
+
+            elif method == Sku.AllocationMethod.PICKPATH:
+                # PICKPATH (最短路径优先)：直接按照 Location 表里的 pick_path 排序
+                # 第二优先级为 FIFO
+                stock_records = base_query.order_by(
+                    'bin__pick_path',
+                    'created_at'
+                )
+
+            else: 
+                # FIFO (默认)：最早入库的先出
+                # 第二优先级为 pick_path
+                stock_records = base_query.order_by(
+                    'created_at',
+                    'bin__pick_path'
+                )
+
+            # 5. 执行逐步扣减逻辑
             for record in stock_records:
                 if remaining_to_deduct <= 0:
                     break
 
+                # 决定当前库位扣多少 (要么全拿走，要么拿够剩下的)
                 deduct_now = min(record.qty, remaining_to_deduct)
                 
-                # Update inventory record
+                # 扣除库存
                 record.qty = F('qty') - deduct_now
                 record.save()
 
-                # Create audit trail for each bin deduction
+                # 创建审计日志 (Transaction)
+                strategy_tag = f"[{method}] " # 可以在日志里标记是按什么策略出的货
                 InventoryTransaction.objects.create(
                     type='OUTBOUND',
-                    sku_id=item.sku_id,
+                    sku_id=sku.id,
                     client_id=order.client_id,
                     change_qty=-deduct_now,
                     from_bin_id=record.bin_id,
                     reference_id=order.transaction_id or order.order_number,
-                    reason='ORDER_FULFILLMENT'
+                    reason=f"{strategy_tag}ORDER_FULFILLMENT"
                 )
 
                 remaining_to_deduct -= deduct_now
 
-        # Finalize order status
+        # 6. 更新订单状态
         order.status = 'COMPLETE'
         order.save()
         return order
 
+    #[cite: 1] 下方的 reverts 和 ship_order 保持不变
     @staticmethod
     @transaction.atomic
     def revert_to_pending(order_key):
@@ -129,7 +164,6 @@ class OrderService:
         order.status = 'SHIPPED'
         order.save(update_fields=['status', 'updated_at'])
         return order
-
 
 class ReceiptService:
     @staticmethod
