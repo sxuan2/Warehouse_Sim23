@@ -11,6 +11,11 @@ export interface InventoryItem {
     bin: string;
     location_details: {
         name: string;
+        // === 核心修复：补全前端视图所需的库位扩展字段 ===
+        warehouse_name?: string;
+        zone?: string;
+        warehouse?: string;
+        type?: string;
     };
     client: string;
     client_name: string;
@@ -38,7 +43,7 @@ export const useInventoryStore = defineStore('inventory', {
             this.error = null;
             try {
                 const response = await apiClient.get('/warehouses/inventory/');
-                // 【核心修复】兼容 Django 分页返回的 { results: [] } 格式
+                // 兼容 Django 分页返回的 { results: [] } 格式
                 if (Array.isArray(response.data)) {
                     this.items = response.data;
                 } else if (response.data && Array.isArray(response.data.results)) {

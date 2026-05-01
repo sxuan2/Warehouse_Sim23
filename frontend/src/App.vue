@@ -191,7 +191,6 @@
 import { reactive, ref, watch } from 'vue';
 import { 
   LayoutDashboardIcon, BoxIcon, FileDownIcon, LayersIcon,
-  UsersIcon, PackageIcon, HomeIcon, ExternalLinkIcon,
   ChevronDownIcon, ChevronRightIcon, SearchIcon,
   PaletteIcon, SettingsIcon, XIcon
 } from 'lucide-vue-next';

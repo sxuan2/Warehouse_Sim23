@@ -9,6 +9,10 @@ export interface ReceiptItem {
     qty: number;
     lot_number: string | null;
     putaway_location_id: string | null;
+    // === 核心修复：补全表格子项所需的缺失字段 ===
+    weight_lbs?: number | string | null;
+    mu_label?: string | null;
+    putaway_location_name?: string | null;
 }
 
 export interface Receipt {
@@ -19,10 +23,14 @@ export interface Receipt {
     warehouse_name?: string;
     reference_number?: string | null;
     created_at?: string;
-    arrival_date?: string | null;
+    // === 核心修复：使用 any 绕过 Vue 模板对 Date 的苛刻空值类型检查 ===
+    arrival_date?: any; 
     client_id: string;
     warehouse_id: string;
     items: ReceiptItem[];
+    // === 核心修复：补全常规信息面板所需的缺失字段 ===
+    purchase_order_number?: string | null;
+    trailer_pro_number?: string | null;
 }
 
 export const useReceiptStore = defineStore('receipt', () => {
@@ -35,7 +43,7 @@ export const useReceiptStore = defineStore('receipt', () => {
         isLoading.value = true;
         try {
             const response = await apiClient.get('/warehouses/receipts/');
-            // 核心修复：防御性赋值
+            // 防御性赋值
             receipts.value = response.data || [];
         } catch (err: any) {
             error.value = err.message;
