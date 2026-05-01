@@ -143,20 +143,6 @@ class WarehouseDetailView(APIView):
                 status=status.HTTP_409_CONFLICT
             )
 
-# class SkuDictView(APIView):
-#     def get(self, request):
-#         """
-#         Modified to support filtering by client_id.
-#         Usage: /api/warehouses/sku/?client_id=<uuid>
-#         """
-#         client_id = request.query_params.get('client_id')
-#         queryset = Sku.objects.all().order_by('part_number')
-        
-#         if client_id:
-#             queryset = queryset.filter(client_id=client_id)
-            
-#         serializer = SkuSerializer(queryset, many=True)
-#         return Response(serializer.data)
 class SkuListView(APIView):
     def get(self, request):
         # 默认按客户和零件号排序
@@ -202,8 +188,7 @@ class SkuDetailView(APIView):
                 {"error": "Cannot delete this SKU. It may have linked inventory or order histories."}, 
                 status=status.HTTP_409_CONFLICT
             )
-            
-            
+                
 class LocationListView(APIView):
     def get(self, request):
         # 默认按库区和拣货路径排序
@@ -330,7 +315,6 @@ class ReceiptListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ReceiptStatusUpdateView(APIView):
     def post(self, request, pk):

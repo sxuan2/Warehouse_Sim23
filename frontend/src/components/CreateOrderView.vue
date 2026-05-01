@@ -387,7 +387,7 @@ watch(() => form.client_id, async (newId) => {
   if (newId) {
     isUpdatingSkus.value = true;
     try {
-      const res = await apiClient.get(`/warehouses/sku/?client_id=${newId}`);
+      const res = await apiClient.get(`/warehouses/sku/list/?client_id=${newId}`);
       skus.value = Array.isArray(res.data) ? res.data : (res.data?.results || []);
       form.items = [{ sku_id: '', qty: 1, price: 0, weight: 0, uom: 'Each' }]
     } catch (e) {}
