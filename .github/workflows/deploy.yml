@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            PROJECT_DIR="/home/${{ secrets.USER }}/new_project"
+            PROJECT_DIR="/home/${{ secrets.USER }}/warehouse_sim23"
             
             # 如果目录不存在则创建
             if [ ! -d "$PROJECT_DIR" ]; then
