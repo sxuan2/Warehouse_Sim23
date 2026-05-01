@@ -18,7 +18,7 @@ services:
     ports:
       - "8081:80"  # 服务器 8081 -> 容器 80
     depends_on:
-      - new_backend
+      - wh_sim23_backend
 
 networks:
   default:
