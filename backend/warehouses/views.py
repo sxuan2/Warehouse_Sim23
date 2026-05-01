@@ -16,11 +16,54 @@ from .services import InventoryService, OrderService, ReceiptService
 
 #######################################################################
 
+# 找到原来的 ClientListView，替换并增加以下代码
 class ClientListView(APIView):
     def get(self, request):
         clients = Client.objects.all().order_by('name')
         serializer = ClientSerializer(clients, many=True)
         return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ClientSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ClientDetailView(APIView):
+    def get_object(self, pk):
+        try:
+            return Client.objects.get(pk=pk)
+        except Client.DoesNotExist:
+            return None
+
+    # 修改客户
+    def put(self, request, pk):
+        client = self.get_object(pk)
+        if not client:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = ClientSerializer(client, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # 删除客户
+    def delete(self, request, pk):
+        client = self.get_object(pk)
+        if not client:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        try:
+            client.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            # 拦截数据库外键保护错误 (例如该客户已经有订单了，不能删)
+            return Response(
+                {"error": "Cannot delete this customer. They may have linked inventory or orders."}, 
+                status=status.HTTP_409_CONFLICT
+            )
 
 class UserListView(APIView):
     def get(self, request):
@@ -56,27 +99,156 @@ class WarehouseListView(APIView):
         serializer = WarehouseSerializer(warehouses, many=True)
         return Response(serializer.data)
 
-class SkuDictView(APIView):
-    def get(self, request):
-        """
-        Modified to support filtering by client_id.
-        Usage: /api/warehouses/sku/?client_id=<uuid>
-        """
-        client_id = request.query_params.get('client_id')
-        queryset = Sku.objects.all().order_by('part_number')
-        
-        if client_id:
-            queryset = queryset.filter(client_id=client_id)
+    # 处理新建仓库的 POST 请求
+    def post(self, request):
+        serializer = WarehouseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# 处理特定仓库的修改和删除
+class WarehouseDetailView(APIView):
+    def get_object(self, pk):
+        try:
+            return Warehouse.objects.get(pk=pk)
+        except Warehouse.DoesNotExist:
+            return None
+
+    # 修改仓库
+    def put(self, request, pk):
+        warehouse = self.get_object(pk)
+        if not warehouse:
+            return Response({"error": "Warehouse not found"}, status=status.HTTP_404_NOT_FOUND)
             
-        serializer = SkuSerializer(queryset, many=True)
+        serializer = WarehouseSerializer(warehouse, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # 删除仓库
+    def delete(self, request, pk):
+        warehouse = self.get_object(pk)
+        if not warehouse:
+            return Response({"error": "Warehouse not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        try:
+            warehouse.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            # 拦截数据库外键保护错误 (例如该仓库下已有库位 Location)
+            return Response(
+                {"error": "Cannot delete this warehouse. It contains locations or inventory."}, 
+                status=status.HTTP_409_CONFLICT
+            )
+
+# class SkuDictView(APIView):
+#     def get(self, request):
+#         """
+#         Modified to support filtering by client_id.
+#         Usage: /api/warehouses/sku/?client_id=<uuid>
+#         """
+#         client_id = request.query_params.get('client_id')
+#         queryset = Sku.objects.all().order_by('part_number')
+        
+#         if client_id:
+#             queryset = queryset.filter(client_id=client_id)
+            
+#         serializer = SkuSerializer(queryset, many=True)
+#         return Response(serializer.data)
+class SkuListView(APIView):
+    def get(self, request):
+        # 默认按客户和零件号排序
+        skus = Sku.objects.all().order_by('client__name', 'part_number')
+        serializer = SkuSerializer(skus, many=True)
         return Response(serializer.data)
 
-class LocationDictView(APIView):
+    def post(self, request):
+        serializer = SkuSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SkuDetailView(APIView):
+    def get_object(self, pk):
+        try:
+            return Sku.objects.get(pk=pk)
+        except Sku.DoesNotExist:
+            return None
+
+    def put(self, request, pk):
+        sku = self.get_object(pk)
+        if not sku:
+            return Response({"error": "SKU not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = SkuSerializer(sku, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        sku = self.get_object(pk)
+        if not sku:
+            return Response({"error": "SKU not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        try:
+            sku.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {"error": "Cannot delete this SKU. It may have linked inventory or order histories."}, 
+                status=status.HTTP_409_CONFLICT
+            )
+            
+            
+class LocationListView(APIView):
     def get(self, request):
-        locations = Location.objects.all().order_by('name')
+        # 默认按库区和拣货路径排序
+        locations = Location.objects.all().order_by('zone', 'pick_path', 'name')
         serializer = LocationSerializer(locations, many=True)
         return Response(serializer.data)
 
+    def post(self, request):
+        serializer = LocationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class LocationDetailView(APIView):
+    def get_object(self, pk):
+        try:
+            return Location.objects.get(pk=pk)
+        except Location.DoesNotExist:
+            return None
+
+    def put(self, request, pk):
+        location = self.get_object(pk)
+        if not location:
+            return Response({"error": "Location not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = LocationSerializer(location, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        location = self.get_object(pk)
+        if not location:
+            return Response({"error": "Location not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        try:
+            location.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {"error": "Cannot delete this location. It may contain active inventory."}, 
+                status=status.HTTP_409_CONFLICT
+            )
 class InventoryReceiveView(APIView):
     def post(self, request):
         try:

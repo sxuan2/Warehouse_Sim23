@@ -1,20 +1,37 @@
 from django.urls import path
 from .views import (
-    ClientListView, UserListView, CountryListView, RegionListView,
-    WarehouseListView, SkuDictView, LocationDictView,
+    ClientListView, ClientDetailView, SkuListView, SkuDetailView, UserListView, CountryListView, RegionListView, WarehouseDetailView,
+    WarehouseListView, LocationListView, LocationDetailView,
     InventoryReceiveView, OrderFulfillmentView, OrderRevertPendingView, OrderShipView, InventoryListView,
-    OrderListView, TransactionListView, ReceiptListView, ReceiptStatusUpdateView, get_region_choices, BulkImportLocationView
+    OrderListView, TransactionListView, ReceiptListView, ReceiptStatusUpdateView, get_region_choices, 
+    BulkImportLocationView
 )
 
 urlpatterns = [
     # Dictionary Routes
     path('client/', ClientListView.as_view(), name='client-list'),
+    path('client/<uuid:pk>/', ClientDetailView.as_view(), name='client-detail'),
+    
     path('users/', UserListView.as_view(), name='user-list'),
     path('countries/', CountryListView.as_view(), name='country-list'),
+    
+    # 保持原有的 regions (复数)，以防其他旧组件还在使用
     path('regions/', RegionListView.as_view(), name='region-list'),
+    
+    # [核心修复 1] 匹配 WarehouseTab.vue 的单数请求路径，并去掉 api/ 前缀
+    path('region/', get_region_choices, name='region-choices'),
+    
     path('warehouse/', WarehouseListView.as_view(), name='warehouse-list'),
-    path('sku/', SkuDictView.as_view(), name='sku-dict'),
-    path('location/', LocationDictView.as_view(), name='location-dict'),
+    path('warehouse/<str:pk>/', WarehouseDetailView.as_view(), name='warehouse-detail'),
+    
+    path('sku/list/', SkuListView.as_view(), name='sku-list'),
+    path('sku/<str:pk>/', SkuDetailView.as_view(), name='sku-detail'),
+    
+    path('location/list/', LocationListView.as_view(), name='location-list'),
+    path('location/<str:pk>/', LocationDetailView.as_view(), name='location-detail'),
+
+    # [核心修复 2] 匹配批量导入的路径，去掉多余的 api/warehouses/ 前缀
+    path('location/bulk_import/', BulkImportLocationView.as_view(), name='location-bulk-import'),
 
     # Inventory routes
     path('inventory/', InventoryListView.as_view(), name='inventory-list'),
@@ -30,7 +47,4 @@ urlpatterns = [
     path('transactions/', TransactionListView.as_view(), name='transaction-list'),
     path('receipts/', ReceiptListView.as_view(), name='receipt-list'),
     path('receipts/<str:pk>/status/', ReceiptStatusUpdateView.as_view(), name='receipt-status-update'),
-    
-    path('api/regions/', get_region_choices, name='api_regions'),
-    path('api/warehouses/location/bulk_import/', BulkImportLocationView.as_view(), name='location-bulk-import'),
 ]

@@ -253,18 +253,25 @@ const executeImport = async () => {
   if (validationErrors.value.length > 0 || previewData.value.length === 0) return;
   
   isImporting.value = true;
-  importResult.value = null; // Clear previous results
+  importResult.value = null; // 清除之前的状态
   
   try {
     const response = await apiClient.post('/warehouses/location/bulk_import/', previewData.value);
-    importResult.value = { success: true, message: response.data.message };
-    // Clear preview to prevent double submission
+    importResult.value = { 
+      success: true, 
+      message: response.data.message // 使用后端返回的成功信息
+    };
+    
     previewData.value = []; 
+    
   } catch (error: any) {
-    // Capture backend rollback message
+    const errorMessage = error.response?.data?.error || 
+                         error.response?.data?.message || 
+                         "Critical System Error during import. Transaction rolled back.";
+                         
     importResult.value = { 
       success: false, 
-      message: error.response?.data?.message || "Critical System Error during import. Transaction rolled back."
+      message: errorMessage // 显示具体的错误原因（如重复的 ID）
     };
   } finally {
     isImporting.value = false;

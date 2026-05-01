@@ -1,33 +1,75 @@
+import re
 from rest_framework import serializers
 from django.db import transaction
-import re
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 from .models import (
     Client, Warehouse, Location, Sku, Inventory, 
     Order, OrderItem, InventoryTransaction,
     Receipt, ReceiptItem
 )
 
+
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
+        
+    def validate(self, data):
+        # 核心修复 1：剔除多对多字段，否则 Client(**clean_data) 会直接抛出 TypeError
+        clean_data = {k: v for k, v in data.items() if k != 'warehouses'}
+        
+        # 实例化模型但不保存，仅仅为了触发模型的 clean() 逻辑（国家与州的联动校验）
+        instance = Client(**clean_data)
+        try:
+            instance.clean()
+        except DjangoValidationError as e:
+            # 捕获 Django 模型层的校验错误并转为 DRF 格式
+            raise serializers.ValidationError(e.message_dict)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+            
+        return data
+
 
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Warehouse
         fields = '__all__'
+        
+    def validate(self, data):
+        # 实例化模型但不保存，仅仅为了触发模型的 clean() 逻辑（国家与州、时区的联动校验）
+        instance = Warehouse(**data)
+        try:
+            instance.clean()
+        except DjangoValidationError as e:
+            # 捕获 Django 模型层的校验错误并转为 DRF 格式
+            raise serializers.ValidationError(e.message_dict)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+            
+        return data
+
+# class SkuSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Sku
+#         fields = '__all__'
 
 class SkuSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.name', read_only=True)
+    
     class Meta:
         model = Sku
         fields = '__all__'
-
+        
+        
 class LocationSerializer(serializers.ModelSerializer):
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
     
     class Meta:
         model = Location
         fields = '__all__'
+
 
 # (保持文件上方其他 Serializer 不变)
 

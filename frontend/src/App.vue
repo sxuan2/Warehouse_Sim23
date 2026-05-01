@@ -101,25 +101,11 @@
           <div class="my-4 border-t border-wms-border mx-2"></div>
           
           <li>
-            <a href="http://127.0.0.1:8000/admin/warehouses/client/" target="_blank" class="w-full flex items-center gap-3 px-3 py-2.5 rounded text-slate-500 hover:text-wms-text hover:bg-white/[0.02] transition-all">
-              <UsersIcon :size="16" />
-              <span class="text-xs font-semibold tracking-wide">Customers</span>
-              <ExternalLinkIcon :size="12" class="ml-auto opacity-50" />
-            </a>
-          </li>
-          <li>
-            <a href="http://127.0.0.1:8000/admin/warehouses/sku/" target="_blank" class="w-full flex items-center gap-3 px-3 py-2.5 rounded text-slate-500 hover:text-wms-text hover:bg-white/[0.02] transition-all">
-              <PackageIcon :size="16" />
-              <span class="text-xs font-semibold tracking-wide">Items</span>
-              <ExternalLinkIcon :size="12" class="ml-auto opacity-50" />
-            </a>
-          </li>
-          <li>
-            <a href="http://127.0.0.1:8000/admin/warehouses/warehouse/" target="_blank" class="w-full flex items-center gap-3 px-3 py-2.5 rounded text-slate-500 hover:text-wms-text hover:bg-white/[0.02] transition-all">
-              <HomeIcon :size="16" />
-              <span class="text-xs font-semibold tracking-wide">Warehouse</span>
-              <ExternalLinkIcon :size="12" class="ml-auto opacity-50" />
-            </a>
+            <button @click="tabStore.openTab({ id: 'master_data', title: 'Master Data', componentName: 'MasterDataView', group: 'system' })" 
+              :class="['w-full flex items-center gap-3 px-3 py-2.5 rounded transition-all', tabStore.activeTabId === 'master_data' ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-400 hover:text-wms-text hover:bg-white/[0.02]']">
+              <DatabaseIcon :size="16" />
+              <span class="text-xs font-semibold tracking-wide">Master Data</span>
+            </button>
           </li>
         </ul>
       </nav>
@@ -222,6 +208,7 @@ import ReceiptView from './components/ReceiptView.vue';
 import CreateReceiptView from './components/CreateReceiptView.vue';
 import CreateOrderView from './components/CreateOrderView.vue';
 import SettingsView from './components/SettingsView.vue';
+import MasterDataView from './components/MasterDataView.vue';
 
 const tabStore = useTabStore();
 
@@ -234,7 +221,8 @@ const componentMap: Record<string, any> = {
   ReceiptView,
   CreateReceiptView,
   CreateOrderView,
-  SettingsView
+  SettingsView,
+  MasterDataView
 };
 
 // 允许无限次独立打开 Create Order 标签
