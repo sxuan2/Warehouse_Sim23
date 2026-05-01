@@ -16,7 +16,7 @@ services:
     container_name: wh_sim23_frontend
     restart: always
     ports:
-      - "8081:80"  # 服务器 8081 -> 容器 80
+      - "5002:80"  # 服务器 5002 -> 容器 80
     depends_on:
       - wh_sim23_backend
 
