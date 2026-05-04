@@ -21,6 +21,7 @@
         <thead class="bg-wms-header text-[9px] text-[#8b949e] uppercase tracking-[0.2em] font-bold sticky top-0 z-10 border-b border-wms-border">
           <tr>
             <th class="px-6 py-4">Timestamp (UTC)</th>
+            <th class="px-6 py-4">Warehouse</th>
             <th class="px-6 py-4">Operation Type</th>
             <th class="px-6 py-4">SKU Code</th>
             <th class="px-6 py-4 text-right">Qty Delta</th>
@@ -30,7 +31,7 @@
         </thead>
         <tbody class="text-[11px] font-mono text-slate-400">
           <tr v-if="auditStore.transactions.length === 0 && !auditStore.isLoading">
-            <td colspan="6" class="px-6 py-20 text-center text-slate-600 italic uppercase tracking-widest text-[10px]">
+            <td colspan="7" class="px-6 py-20 text-center text-slate-600 italic uppercase tracking-widest text-[10px]">
               No transactions recorded in ledger.
             </td>
           </tr>
@@ -41,6 +42,9 @@
           >
             <td class="px-6 py-3 whitespace-nowrap">
               {{ new Date(tx.timestamp).toLocaleString() }}
+            </td>
+            <td class="px-6 py-3 font-bold text-slate-300">
+              {{ tx.warehouse_name || 'N/A' }}
             </td>
             <td class="px-6 py-3">
               <span :class="[

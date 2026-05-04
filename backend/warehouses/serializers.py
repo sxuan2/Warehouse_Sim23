@@ -9,7 +9,6 @@ from .models import (
     Receipt, ReceiptItem
 )
 
-
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
@@ -31,7 +30,6 @@ class ClientSerializer(serializers.ModelSerializer):
             
         return data
 
-
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Warehouse
@@ -50,28 +48,19 @@ class WarehouseSerializer(serializers.ModelSerializer):
             
         return data
 
-# class SkuSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Sku
-#         fields = '__all__'
-
 class SkuSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
     
     class Meta:
         model = Sku
         fields = '__all__'
-        
-        
+       
 class LocationSerializer(serializers.ModelSerializer):
     warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
     
     class Meta:
         model = Location
         fields = '__all__'
-
-
-# (保持文件上方其他 Serializer 不变)
 
 class InventorySerializer(serializers.ModelSerializer):
     sku_details = SkuSerializer(source='sku', read_only=True)
@@ -85,7 +74,6 @@ class InventorySerializer(serializers.ModelSerializer):
             'client', 'client_name', 'qty', 'serial_number', 'lot_number', 'expiry_date'
         ]
 
-# --- Order Serializers ---
 class OrderItemSerializer(serializers.ModelSerializer):
     sku_part_number = serializers.CharField(source='sku.part_number', read_only=True)
     sku_id = serializers.UUIDField(write_only=True)
@@ -156,11 +144,19 @@ class InventoryTransactionSerializer(serializers.ModelSerializer):
     from_bin_name = serializers.CharField(source='from_bin.name', read_only=True)
     to_bin_name = serializers.CharField(source='to_bin.name', read_only=True)
 
+    warehouse_name = serializers.SerializerMethodField()
+
     class Meta:
         model = InventoryTransaction
         fields = '__all__'
 
-# --- Receipt Serializers ---
+    def get_warehouse_name(self, obj):
+        # 逻辑：优先从目标库位取仓库名（入库/移库），如果没有则从来源库位取（出库）
+        bin_obj = obj.to_bin or obj.from_bin
+        if bin_obj and bin_obj.warehouse:
+            return bin_obj.warehouse.name
+        return "Unknown"
+
 class ReceiptItemSerializer(serializers.ModelSerializer):
     sku_part_number = serializers.CharField(source='sku.part_number', read_only=True)
     putaway_location_name = serializers.CharField(source='putaway_location.name', read_only=True)
@@ -173,8 +169,6 @@ class ReceiptItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
         # [FIX] 告诉 DRF 绕过自动必填校验
         read_only_fields = ('receipt', 'sku', 'putaway_location')
-
-# (保持文件上方 imports 不变)
 
 class ReceiptSerializer(serializers.ModelSerializer):
     items = ReceiptItemSerializer(many=True)
