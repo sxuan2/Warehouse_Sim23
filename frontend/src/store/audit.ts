@@ -12,6 +12,7 @@ export interface AuditTransaction {
     reference_id: string | null;
     reason: string | null;
     timestamp: string;
+    warehouse_name: string;
 }
 
 export const useAuditStore = defineStore('audit', {
