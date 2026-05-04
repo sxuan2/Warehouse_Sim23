@@ -9,7 +9,7 @@ services:
       - ./backend/db:/app/db  # 持久化 SQLite 数据库文件
       - ./backend/static:/app/staticfiles
     ports:
-      - "8001:8000"  # 重点：左边是外面访问的端口，右边是容器内的端口
+      - "5004:8000"  # 重点：左边是外面访问的端口，右边是容器内的端口
     environment:
       - DEBUG=False
 
