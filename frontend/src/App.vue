@@ -120,6 +120,14 @@
         </div>
 
         <div class="flex items-center gap-4">
+          <button 
+            @click="handleLogout" 
+            class="flex items-center gap-2 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 transition-colors border border-rose-500/20 rounded-sm group"
+          >
+            <LogOutIcon :size="14" class="group-hover:scale-110 transition-transform" />
+            <span>Sign Out</span>
+          </button>
+          
           <div class="relative">
             <button @click="isSettingsOpen = !isSettingsOpen" 
               class="p-2 text-slate-500 hover:text-indigo-400 transition-colors rounded-full hover:bg-black/5">
@@ -192,10 +200,9 @@ import { reactive, ref, watch } from 'vue';
 import { 
   LayoutDashboardIcon, BoxIcon, FileDownIcon, LayersIcon,
   ChevronDownIcon, ChevronRightIcon, SearchIcon,
-  PaletteIcon, SettingsIcon, XIcon
+  PaletteIcon, SettingsIcon, XIcon, LogOutIcon
 } from 'lucide-vue-next';
 
-// 引入 Store
 import { useTabStore } from './store/tab';
 
 // 引入所有视图组件
@@ -303,6 +310,14 @@ watch(currentTheme, (theme) => {
 watch(() => ({ ...branding }), (value) => {
   localStorage.setItem(brandingStorageKey, JSON.stringify(value));
 }, { deep: true });
+
+const handleLogout = () => {
+  // 1. 彻底清除 localStorage 里的令牌
+  localStorage.removeItem('auth_token');
+  // 2. 刷新页面。页面刷新后 main.ts 会重新执行，
+  // 因为拿不到 auth_token，rootComponent 会自动变成 Login
+  window.location.reload(); 
+};
 </script>
 
 <style>

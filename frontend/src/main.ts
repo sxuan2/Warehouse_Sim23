@@ -1,12 +1,14 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
-
-// Make sure your CSS (which contains Tailwind) is imported
+import Login from './views/Login.vue';
 import './style.css'; 
 
-const app = createApp(App);
 const pinia = createPinia();
+const token = localStorage.getItem('auth_token');
 
-app.use(pinia); // <--- This is the crucial missing line!
+const rootComponent = token ? App : Login;
+
+const app = createApp(rootComponent);
+app.use(pinia);
 app.mount('#app');
