@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-    // 保持你原本的 baseURL 和配置[cite: 13]
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api',
+    // 使用 import.meta.env 获取环境变量，生产环境默认为 /api
+    baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -11,9 +11,9 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config) => {
-        // 保持你原本读取 auth_token 的逻辑[cite: 13]
         const token = localStorage.getItem('auth_token');
         if (token && config.headers) {
+            // 拼接 Bearer 协议前缀
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -28,20 +28,19 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
-        // 核心修复：如果后端返回 401，说明没登录或令牌失效
-        if (error.response?.status === 401) {
+        // 排除掉登录接口本身的 401（防止登录失败时页面死循环刷新）
+        const isLoginRequest = error.config.url.includes('/token/');
+
+        if (error.response?.status === 401 && !isLoginRequest) {
             localStorage.removeItem('auth_token');
-            // 因为你没装路由，这里直接刷新页面，由下文 main.ts 控制显示登录框
+            // 触发 main.ts 的 rootComponent 重新判定
             window.location.reload(); 
         }
 
-        // 保持你原本的 console.error 处理逻辑[cite: 13]
         if (error.response) {
             console.error(`[API Error] ${error.response.status}:`, error.response.data);
-        } else if (error.request) {
-            console.error('[API Error] No response received from server:', error.request);
         } else {
-            console.error('[API Error] Request setup failed:', error.message);
+            console.error('[API Error]:', error.message);
         }
         return Promise.reject(error);
     }
