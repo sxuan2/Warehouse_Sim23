@@ -1,6 +1,7 @@
 <template>
   <div class="flex flex-col gap-6 h-full relative">
     
+    <!-- 顶部数据看板 -->
     <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
       <div>
         <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Order Flow Overview</div>
@@ -27,6 +28,7 @@
       </div>
     </div>
 
+    <!-- 错误横幅 -->
     <div v-if="orderStore.error" class="bg-rose-500/10 border border-rose-500/20 p-4 shrink-0 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <AlertCircle class="text-rose-500" :size="16" />
@@ -37,6 +39,7 @@
       </button>
     </div>
 
+    <!-- 订单详情视图 -->
     <div v-if="selectedOrder" class="bg-wms-surface border border-wms-border flex flex-col flex-1 min-h-0">
       <div class="bg-wms-header border-b border-wms-border p-4 flex justify-between items-center shrink-0 shadow-lg">
         <div class="flex items-center gap-6">
@@ -54,7 +57,7 @@
         </div>
         
         <div class="flex items-center gap-2">
-          <!-- 取消按钮，点击触发弹窗 -->
+          <!-- 取消按钮 (仅PENDING显示) -->
           <button 
             v-if="selectedOrder.status === 'PENDING'"
             @click="handleCancelOrder"
@@ -103,6 +106,7 @@
         </div>
       </div>
 
+      <!-- Tab 切换 -->
       <div class="bg-wms-header border-b border-wms-border flex gap-1 px-4 pt-4 shrink-0">
         <button 
           v-for="tab in ['items', 'details']" 
@@ -115,6 +119,7 @@
         </button>
       </div>
 
+      <!-- Tab 内容 -->
       <div class="p-6 overflow-y-auto flex-1">
         <!-- Tab: Items -->
         <div v-if="activeSubTab === 'items'" class="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -231,7 +236,7 @@
       </div>
     </div>
 
-    <!-- 列表视图 -->
+    <!-- 订单列表视图 -->
     <div v-else class="bg-wms-bg border border-wms-border flex flex-col flex-1 min-h-0">
       <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
         <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
@@ -293,37 +298,29 @@
       </div>
     </div>
 
-    <!-- [新增] 优雅的自定义取消弹窗，放在页面最外层 -->
+    <!-- 取消原因弹窗 -->
     <div v-if="showCancelModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div class="bg-wms-surface border border-wms-border rounded shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
-        <!-- 弹窗 Header -->
+        <!-- 弹窗 Header (采用经典分隔符排版) -->
         <div class="bg-rose-500/10 border-b border-rose-500/20 p-4 flex items-center justify-between">
-          <h3 class="text-rose-400 font-bold uppercase tracking-widest text-[11px] flex items-center flex-wrap gap-2">
-              <AlertTriangle :size="16" class="shrink-0" />
-              <span>Cancel Order</span>
-              
-              <!-- 分隔符 -->
-              <span class="text-rose-500/30 font-normal px-1">|</span>
-              
-              <!-- Transaction ID -->
-              <span class="flex items-center gap-1">
-                  <span class="text-rose-400/60">Trans ID:</span>
-                  <span class="font-mono text-rose-200">{{ selectedOrder?.transaction_id || 'N/A' }}</span>
-              </span>
-              
-              <!-- 分隔符 -->
-              <span class="text-rose-500/30 font-normal px-1">|</span>
-              
-              <!-- Reference Number -->
-              <span class="flex items-center gap-1">
-                  <span class="text-rose-400/60">Ref #:</span>
-                  <span class="font-mono text-rose-200">{{ selectedOrder?.order_number || 'N/A' }}</span>
-              </span>
-          </h3>
-          <button @click="showCancelModal = false" class="text-slate-400 hover:text-white transition-colors shrink-0">
-              <X :size="16"/>
-          </button>
+            <h3 class="text-rose-400 font-bold uppercase tracking-widest text-[11px] flex items-center flex-wrap gap-2">
+                <AlertTriangle :size="16" class="shrink-0" />
+                <span>Cancel Order</span>
+                <span class="text-rose-500/30 font-normal px-1">|</span>
+                <span class="flex items-center gap-1">
+                    <span class="text-rose-400/60">TXN:</span>
+                    <span class="font-mono text-rose-200">{{ selectedOrder?.transaction_id || 'N/A' }}</span>
+                </span>
+                <span class="text-rose-500/30 font-normal px-1">|</span>
+                <span class="flex items-center gap-1">
+                    <span class="text-rose-400/60">REF:</span>
+                    <span class="font-mono text-rose-200">{{ selectedOrder?.order_number || 'N/A' }}</span>
+                </span>
+            </h3>
+            <button @click="showCancelModal = false" class="text-slate-400 hover:text-white transition-colors shrink-0">
+                <X :size="16"/>
+            </button>
         </div>
         
         <!-- 弹窗 Body -->
@@ -365,6 +362,24 @@
       </div>
     </div>
 
+    <!-- 成功提示 Toast -->
+    <transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="transform translate-y-4 opacity-0"
+      enter-to-class="transform translate-y-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="transform translate-y-0 opacity-100"
+      leave-to-class="transform translate-y-4 opacity-0"
+    >
+      <div 
+        v-if="toastMessage" 
+        class="absolute bottom-6 right-6 z-[100] flex items-center gap-3 bg-[#064e3b]/80 border border-emerald-500/30 px-5 py-3 rounded shadow-2xl backdrop-blur-md"
+      >
+        <CheckCircle :size="18" class="text-emerald-400 shrink-0" />
+        <span class="text-emerald-400 text-xs font-bold uppercase tracking-widest">{{ toastMessage }}</span>
+      </div>
+    </transition>
+
   </div>
 </template>
 
@@ -382,12 +397,16 @@ import {
   AlertCircle,
   X,
   AlertTriangle,
-  Loader2
+  Loader2,
+  CheckCircle // [新增了勾选图标]
 } from 'lucide-vue-next';
 
 const showCancelModal = ref(false);
 const cancelReasonInput = ref('');
 const isCancelling = ref(false);
+
+// [新增] 用于控制 Toast 提示的变量
+const toastMessage = ref('');
 
 const orderStore = useOrderStore();
 const selectedOrder = ref<Order | null>(null);
@@ -400,6 +419,14 @@ const shippedOrdersCount = computed(() => (orderStore.orders || []).filter(o => 
 onMounted(() => {
   orderStore.fetchOrders();
 });
+
+// [新增] 显示 Toast 的方法，3秒后自动消失
+const showToast = (msg: string) => {
+  toastMessage.value = msg;
+  setTimeout(() => {
+    toastMessage.value = '';
+  }, 3000);
+};
 
 const handleCancelOrder = () => {
   cancelReasonInput.value = ''; 
@@ -422,7 +449,8 @@ const confirmCancel = async () => {
     selectedOrder.value = null;
     showCancelModal.value = false;
     
-    alert('Order has been cancelled successfully.'); 
+    // [修改] 调用 Toast 替代原生 alert
+    showToast('Order has been cancelled successfully.'); 
   } catch (error: any) {
     const errorMsg = error.response?.data?.error || 'System error during cancellation.';
     alert(`Cancellation Failed: ${errorMsg}`);
