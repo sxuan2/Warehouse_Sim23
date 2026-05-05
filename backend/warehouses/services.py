@@ -63,6 +63,7 @@ class OrderService:
             # 2. 查找可用库存（锁定以防止并发发货冲突）
             base_query = Inventory.objects.select_for_update().filter(
                 sku_id=sku.id,
+                bin__warehouse=order.warehouse,
                 qty__gt=0
             ).select_related('bin')
 
@@ -70,7 +71,7 @@ class OrderService:
             total_available = base_query.aggregate(total=Sum('qty'))['total'] or 0
             if total_available < item.qty:
                 raise ValueError(
-                    f"Insufficient stock for SKU: {sku.part_number}. "
+                    f"Insufficient stock for SKU: {sku.part_number} in {order.warehouse.name}. "
                     f"Required: {item.qty}, Available: {total_available}"
                 )
 
