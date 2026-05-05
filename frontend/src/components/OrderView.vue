@@ -47,12 +47,25 @@
             <ChevronLeft :size="18" />
           </button>
           <div>
-            <div class="text-[10px] text-slate-500 uppercase font-bold tracking-widest flex items-center gap-2">
-              Order Review <span class="text-slate-700">|</span> 
-              <span class="text-indigo-400">Txn: {{ selectedOrder.transaction_id || selectedOrder.order_number }}</span>
-              <span class="text-slate-700">|</span> 
-              <span>Client: {{ selectedOrder.client_name || 'UNKNOWN' }}</span>
+            <div>
+              <div class="text-[10px] text-slate-500 uppercase font-bold tracking-widest flex items-center gap-2">
+                Order Review <span class="text-slate-700">|</span> 
+                
+                <!-- 系统流水号 (TXN) -->
+                <span class="text-indigo-400">TXN: {{ selectedOrder.transaction_id || 'N/A' }}</span>
+                
+                <span class="text-slate-700">|</span> 
+                
+                <!-- 客户参考单号 (REF) -->
+                <span class="text-indigo-400">REF: {{ selectedOrder.order_number || 'N/A' }}</span>
+                
+                <span class="text-slate-700">|</span> 
+                
+                <!-- 客户名称 -->
+                <span>Client: {{ selectedOrder.client_name || 'UNKNOWN' }}</span>
+              </div>
             </div>
+
           </div>
         </div>
         
@@ -255,7 +268,8 @@
         <table class="w-full text-left">
           <thead class="bg-wms-header text-[10px] text-slate-500 uppercase tracking-widest font-bold border-b border-wms-border sticky top-0">
             <tr>
-              <th class="p-4">Transaction ID</th>
+              <!-- <th class="p-4">Transaction ID</th> -->
+              <th class="p-4">Txn / Ref Number</th>
               <th class="p-4">Customer</th>
               <th class="p-4">Warehouse</th>
               <th class="p-4">Total Lines</th>
@@ -273,7 +287,19 @@
               @click="selectedOrder = order"
               class="border-b border-wms-border hover:bg-white/[0.02] cursor-pointer group transition-colors"
             >
-              <td class="p-4 font-mono font-bold text-wms-text group-hover:text-indigo-400">{{ order.transaction_id || order.order_number }}</td>
+              <!-- <td class="p-4 font-mono font-bold text-wms-text group-hover:text-indigo-400">{{ order.transaction_id || order.order_number }}</td> -->
+              <td class="p-4">
+                <div class="flex flex-col gap-0.5">
+                  <!-- 主单号：Transaction ID -->
+                  <span class="font-mono font-bold text-wms-text group-hover:text-indigo-400 transition-colors">
+                    {{ order.transaction_id || 'N/A' }}
+                  </span>
+                  <!-- 副单号：Ref Number (变灰、字号缩小) -->
+                  <span class="text-[9px] text-slate-500 font-mono uppercase tracking-widest">
+                    REF: {{ order.order_number || 'N/A' }}
+                  </span>
+                </div>
+              </td>
               <td class="p-4 opacity-80">{{ order.client_name || 'Default Client' }}</td>
               <td class="p-4 opacity-80">{{ order.warehouse_name || 'N/A' }}</td>
               <td class="p-4 font-mono">{{ order.items.length }}</td>
