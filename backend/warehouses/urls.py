@@ -4,7 +4,7 @@ from .views import (
     WarehouseListView, LocationListView, LocationDetailView,
     InventoryReceiveView, OrderFulfillmentView, OrderRevertPendingView, OrderShipView, InventoryListView,
     OrderListView, TransactionListView, ReceiptListView, ReceiptStatusUpdateView, get_region_choices, 
-    BulkImportLocationView
+    BulkImportLocationView, OrderCancelView
 )
 
 urlpatterns = [
@@ -42,6 +42,7 @@ urlpatterns = [
     path('orders/<str:pk>/fulfill/', OrderFulfillmentView.as_view(), name='order-fulfill'),
     path('orders/<str:pk>/ship/', OrderShipView.as_view(), name='order-ship'),
     path('orders/<str:pk>/revert-pending/', OrderRevertPendingView.as_view(), name='order-revert-pending'),
+    path('orders/<uuid:pk>/cancel/', OrderCancelView.as_view(), name='order-cancel'),
     
     # Audit & Receipt routes
     path('transactions/', TransactionListView.as_view(), name='transaction-list'),

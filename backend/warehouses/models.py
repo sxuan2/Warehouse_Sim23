@@ -316,7 +316,6 @@ class Sku(models.Model):
     def __str__(self):
         return f"{self.client.name} | {self.part_number}"
 
-
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sku = models.ForeignKey(Sku, on_delete=models.RESTRICT, related_name='inventory', verbose_name="SKU")
@@ -378,11 +377,8 @@ class Order(models.Model):
     client = models.ForeignKey('Client', on_delete=models.CASCADE, related_name='orders', verbose_name="Customer")
     warehouse = models.ForeignKey('Warehouse', on_delete=models.RESTRICT, related_name='orders', null=True, blank=True, verbose_name="Warehouse")
     
-    order_number = models.CharField(max_length=100, unique=True, verbose_name="Reference Number")
-    
-    # [FIX] Added null=True, blank=True to allow migration of existing rows with null transaction_ids
+    order_number = models.CharField(max_length=100, unique=True, verbose_name="Reference Number")    
     transaction_id = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name="Transaction ID")
-    
     purchase_order = models.CharField(max_length=100, null=True, blank=True, verbose_name="Purchase Order")
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING, verbose_name="Status")
     earliest_ship_date = models.DateTimeField(null=True, blank=True, verbose_name="Earliest Ship Date")
@@ -433,6 +429,7 @@ class Order(models.Model):
     total_movable_units = models.IntegerField(default=0, verbose_name="Total Movable Units")
     mu_uom = models.CharField(max_length=50, null=True, blank=True, verbose_name="Movable Unit UOM")
     total_volume = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name="Total Volume cu ft")
+    cancel_reason = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

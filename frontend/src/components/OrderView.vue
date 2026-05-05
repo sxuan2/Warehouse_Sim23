@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-6 h-full">
+  <div class="flex flex-col gap-6 h-full relative">
     
     <div class="bg-wms-bg border border-wms-border p-4 shrink-0 flex flex-col md:flex-row gap-6 justify-between">
       <div>
@@ -54,6 +54,16 @@
         </div>
         
         <div class="flex items-center gap-2">
+          <!-- 取消按钮，点击触发弹窗 -->
+          <button 
+            v-if="selectedOrder.status === 'PENDING'"
+            @click="handleCancelOrder"
+            :disabled="orderStore.isLoading"
+            class="bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-4 py-2 flex items-center gap-2 rounded shadow-sm transition-all uppercase tracking-widest mr-2"
+          >
+            Cancel Order
+          </button>
+
           <button 
             v-if="selectedOrder.status === 'PENDING'"
             @click="handleFulfillOrder"
@@ -76,6 +86,10 @@
           
           <span v-if="selectedOrder.status === 'COMPLETE' || selectedOrder.status === 'SHIPPED'" class="border border-emerald-500/20 text-emerald-500 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest">
             Order Complete
+          </span>
+
+          <span v-if="selectedOrder.status === 'CANCELLED'" class="border border-rose-500/20 text-rose-500 text-[10px] font-bold px-4 py-2 rounded uppercase tracking-widest">
+            Order Cancelled
           </span>
 
           <button
@@ -102,6 +116,7 @@
       </div>
 
       <div class="p-6 overflow-y-auto flex-1">
+        <!-- Tab: Items -->
         <div v-if="activeSubTab === 'items'" class="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
             <h4 class="text-[10px] text-[#0e7490] uppercase font-bold tracking-widest">Requested Items</h4>
@@ -126,7 +141,13 @@
           </table>
         </div>
 
+        <!-- Tab: Details -->
         <div v-if="activeSubTab === 'details'" class="bg-white border border-slate-200 rounded-sm p-6 shadow-sm animate-in fade-in duration-200 text-slate-800 space-y-6">
+          <div v-if="selectedOrder.cancel_reason" class="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-sm">
+            <span class="text-[10px] text-rose-500 font-bold uppercase tracking-widest">Cancellation Reason</span>
+            <p class="text-xs font-medium text-rose-700 mt-1">{{ selectedOrder.cancel_reason }}</p>
+          </div>
+          
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div class="flex flex-col gap-1">
               <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Recipient</span>
@@ -210,6 +231,7 @@
       </div>
     </div>
 
+    <!-- 列表视图 -->
     <div v-else class="bg-wms-bg border border-wms-border flex flex-col flex-1 min-h-0">
       <div class="flex justify-between items-center p-4 border-b border-wms-border shrink-0">
         <div class="text-xs font-bold text-wms-text tracking-widest flex items-center gap-2 uppercase">
@@ -256,6 +278,7 @@
                   order.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
                   order.status === 'COMPLETE' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                   order.status === 'SHIPPED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                  order.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                   'bg-slate-500/10 text-slate-400 border-slate-500/20'
                 ]">
                   {{ order.status }}
@@ -270,6 +293,78 @@
       </div>
     </div>
 
+    <!-- [新增] 优雅的自定义取消弹窗，放在页面最外层 -->
+    <div v-if="showCancelModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div class="bg-wms-surface border border-wms-border rounded shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        <!-- 弹窗 Header -->
+        <div class="bg-rose-500/10 border-b border-rose-500/20 p-4 flex items-center justify-between">
+          <h3 class="text-rose-400 font-bold uppercase tracking-widest text-[11px] flex items-center flex-wrap gap-2">
+              <AlertTriangle :size="16" class="shrink-0" />
+              <span>Cancel Order</span>
+              
+              <!-- 分隔符 -->
+              <span class="text-rose-500/30 font-normal px-1">|</span>
+              
+              <!-- Transaction ID -->
+              <span class="flex items-center gap-1">
+                  <span class="text-rose-400/60">Trans ID:</span>
+                  <span class="font-mono text-rose-200">{{ selectedOrder?.transaction_id || 'N/A' }}</span>
+              </span>
+              
+              <!-- 分隔符 -->
+              <span class="text-rose-500/30 font-normal px-1">|</span>
+              
+              <!-- Reference Number -->
+              <span class="flex items-center gap-1">
+                  <span class="text-rose-400/60">Ref #:</span>
+                  <span class="font-mono text-rose-200">{{ selectedOrder?.order_number || 'N/A' }}</span>
+              </span>
+          </h3>
+          <button @click="showCancelModal = false" class="text-slate-400 hover:text-white transition-colors shrink-0">
+              <X :size="16"/>
+          </button>
+        </div>
+        
+        <!-- 弹窗 Body -->
+        <div class="p-6">
+          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+            This action will immediately set the order to <span class="text-rose-400 font-bold">CANCELLED</span> and release any locked inventory back to the warehouse pool.
+          </p>
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Cancellation Reason (Required)</label>
+            <textarea 
+              v-model="cancelReasonInput" 
+              rows="3" 
+              class="w-full bg-black/20 border border-wms-border rounded p-3 text-xs text-wms-text focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 outline-none transition-all placeholder:text-slate-600 resize-none" 
+              placeholder="e.g. Customer requested cancellation via phone..."
+            ></textarea>
+          </div>
+        </div>
+        
+        <!-- 弹窗 Footer -->
+        <div class="bg-wms-header border-t border-wms-border p-4 flex justify-end gap-3">
+          <button 
+            @click="showCancelModal = false" 
+            :disabled="isCancelling"
+            class="px-4 py-2 text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest transition-colors disabled:opacity-50"
+          >
+            Abort
+          </button>
+          
+          <button 
+            @click="confirmCancel" 
+            :disabled="!cancelReasonInput.trim() || isCancelling" 
+            class="px-4 py-2 text-[10px] font-bold bg-rose-600 hover:bg-rose-500 disabled:opacity-30 disabled:hover:bg-rose-600 text-white rounded shadow-sm uppercase tracking-widest transition-all flex items-center gap-2"
+          >
+             <Loader2 v-if="isCancelling" class="animate-spin" :size="14"/>
+             {{ isCancelling ? 'Processing...' : 'Confirm Cancel' }}
+          </button>
+        </div>
+        
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -277,7 +372,7 @@
 defineOptions({ name: 'OrderView' });
 import { ref, computed, onMounted } from 'vue';
 import { useOrderStore, type Order } from '../store/order';
-// [核心修复] 移除所有容易断层的 Icon 后缀，使用基础底包命名，保证兼容性
+import apiClient from '../api/client';
 import { 
   ArrowRightLeft, 
   Truck, 
@@ -285,14 +380,19 @@ import {
   ChevronRight, 
   RefreshCcw,
   AlertCircle,
-  X
+  X,
+  AlertTriangle,
+  Loader2
 } from 'lucide-vue-next';
+
+const showCancelModal = ref(false);
+const cancelReasonInput = ref('');
+const isCancelling = ref(false);
 
 const orderStore = useOrderStore();
 const selectedOrder = ref<Order | null>(null);
 const activeSubTab = ref('items');
 
-// [防御性修复] 就算 store 彻底断联返回 undefined，这里也会 fallback 到 []，绝不崩溃
 const pendingOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'PENDING').length);
 const completeOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'COMPLETE').length);
 const shippedOrdersCount = computed(() => (orderStore.orders || []).filter(o => o.status === 'SHIPPED').length);
@@ -300,6 +400,36 @@ const shippedOrdersCount = computed(() => (orderStore.orders || []).filter(o => 
 onMounted(() => {
   orderStore.fetchOrders();
 });
+
+const handleCancelOrder = () => {
+  cancelReasonInput.value = ''; 
+  showCancelModal.value = true;
+};
+
+const confirmCancel = async () => {
+  if (!cancelReasonInput.value.trim()) return;
+
+  const orderId = selectedOrder.value?.id;
+  if (!orderId) return;
+
+  isCancelling.value = true;
+  try {
+    await apiClient.post(`/warehouses/orders/${orderId}/cancel/`, {
+      reason: cancelReasonInput.value.trim()
+    });
+    
+    await orderStore.fetchOrders();
+    selectedOrder.value = null;
+    showCancelModal.value = false;
+    
+    alert('Order has been cancelled successfully.'); 
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || 'System error during cancellation.';
+    alert(`Cancellation Failed: ${errorMsg}`);
+  } finally {
+    isCancelling.value = false;
+  }
+};
 
 const handleFulfillOrder = async () => {
   const orderKey = selectedOrder.value?.transaction_id || selectedOrder.value?.id;

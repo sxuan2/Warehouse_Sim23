@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
+from django.shortcuts import get_object_or_404
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,7 +18,6 @@ from .services import InventoryService, OrderService, ReceiptService
 
 #######################################################################
 
-# 找到原来的 ClientListView，替换并增加以下代码
 class ClientListView(APIView):
     def get(self, request):
         clients = Client.objects.all().order_by('name')
@@ -108,7 +108,6 @@ class WarehouseListView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# 处理特定仓库的修改和删除
 class WarehouseDetailView(APIView):
     def get_object(self, pk):
         try:
@@ -252,6 +251,7 @@ class LocationDetailView(APIView):
                 {"error": "Cannot delete this location. It may contain active inventory."}, 
                 status=status.HTTP_409_CONFLICT
             )
+
 class InventoryReceiveView(APIView):
     def post(self, request):
         try:
@@ -291,6 +291,59 @@ class OrderShipView(APIView):
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class OrderCancelView(APIView):
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+
+        # 1. 状态拦截：只有 PENDING 可以取消
+        if order.status != 'PENDING':
+            return Response(
+                {'error': 'Only PENDING orders can be cancelled.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. 检查原因
+        reason = request.data.get('reason')
+        if not reason or not reason.strip():
+            return Response(
+                {'error': 'Cancel reason is required.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                # A. 核心状态流转：更新为取消
+                order.status = 'CANCELLED'
+                order.cancel_reason = reason.strip()
+                order.save()
+
+                # B. 处理库存释放与审计日志
+                for item in order.items.all():
+                    
+                    # 💡 【释放锁定逻辑区】
+                    # 如果你在 Sku 表里用字段记录了锁定数量（例如 allocated_qty），请取消注释并修改下面两行：
+                    # item.sku.allocated_qty -= item.qty
+                    # item.sku.save()
+                    
+                    # 如果你使用的是动态计算可用库存（总数 - PENDING订单总数），那你这里什么都不用干！
+
+                    # C. 记录系统审计日志 (留痕)
+                    InventoryTransaction.objects.create(
+                        sku=item.sku,
+                        client=order.client,
+                        from_bin=None, 
+                        to_bin=None,   # 因为还没拣货，所以不涉及具体库位
+                        change_qty=item.qty,
+                        type='INBOUND', # 或者你可以自定义一个类型叫 'CANCEL_RELEASE'
+                        reference_id=str(order.id),
+                        reason=f"Order Cancelled: {reason[:50]}"
+                    )
+
+            return Response({'message': 'Order successfully cancelled and lock released.'})
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class InventoryListView(APIView):
     def get(self, request):
