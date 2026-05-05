@@ -58,6 +58,7 @@ export interface Order {
     carrier_instructions?: string | null;
     updated_at?: string | null;
     items: OrderItem[];
+    cancel_reason?: string | null;
 }
 
 export const useOrderStore = defineStore('order', {
